@@ -1,8 +1,110 @@
 import ipfn
 import pandas as pd
 import numpy as np
+import plotly.graph_objects as go
+import plotly.express as px
+import plotly.io as pio
 
-path='C:/Users/mayij/Desktop/DOC/GITHUB/IPFGH/'
+path='C:/Users/mayij/Desktop/DOC/DCP2021/TRAVEL DEMAND MODEL/'
+pio.renderers.default = "browser"
+
+
+
+ctpuma=pd.read_csv(path+'ACS/ctpuma.csv',dtype=str)
+
+pums=pd.read_csv(path+'ACS/psam_h36.csv',dtype=str)
+pums=pums.loc[pums['WGTP']!='0',['PUMA','WGTP','NP','HINCP']].reset_index(drop=True)
+pums=pums[pums['NP']!='0'].reset_index(drop=True)
+pums['PUMA']=[x[1:] for x in pums['PUMA']]
+pums['WGTP']=pd.to_numeric(pums['WGTP'])
+pums['NP']=pd.to_numeric(pums['NP'])
+pums['HHSIZE']=np.where(pums['NP']==1,'SIZE1',
+               np.where(pums['NP']==2,'SIZE2',
+               np.where(pums['NP']==3,'SIZE3','SIZE4')))
+pums['HINCP']=pd.to_numeric(pums['HINCP'])
+pums['HHINC']=np.where(pums['HINCP']<5000,'INC01',
+              np.where(pums['HINCP']<10000,'INC02',
+              np.where(pums['HINCP']<15000,'INC03',
+              np.where(pums['HINCP']<20000,'INC04',
+              np.where(pums['HINCP']<25000,'INC05',
+              np.where(pums['HINCP']<35000,'INC06',
+              np.where(pums['HINCP']<50000,'INC07',
+              np.where(pums['HINCP']<75000,'INC08',
+              np.where(pums['HINCP']<100000,'INC09',
+              np.where(pums['HINCP']<150000,'INC10','INC11'))))))))))
+pums=pums.groupby(['PUMA','HHSIZE','HHINC'],as_index=False).agg({'WGTP':'sum'}).reset_index(drop=True)
+
+
+
+
+
+
+
+i='3805'
+
+for i in puma:
+    hhsize=pd.read_csv(path+'ACS/hhsize.csv',dtype=float,converters={'CT':str})
+    hhsize=pd.merge(hhsize,ctpuma,how='inner',on='CT')
+    hhsize=hhsize[hhsize['PUMA']==i].reset_index(drop=True)
+    hhsize=hhsize.melt(id_vars=['CT'],value_vars=['SIZE1','SIZE2','SIZE3','SIZE4'],var_name='HHSIZE',value_name='TOTAL')
+    
+    hhinc=pd.read_csv(path+'ACS/hhinc.csv',dtype=float,converters={'CT':str})
+    hhinc=pd.merge(hhinc,ctpuma,how='inner',on='CT')
+    hhinc=hhinc[hhinc['PUMA']==i].reset_index(drop=True)
+    hhinc=hhinc.melt(id_vars=['CT'],value_vars=['INC01','INC02','INC03','INC04','INC05','INC06','INC07','INC08','INC09','INC10','INC11'],var_name='HHINC',value_name='TOTAL')
+    
+    pumsszic=pd.DataFrame(ipfn.ipfn.product(hhsize['HHSIZE'].unique(),hhinc['HHINC'].unique()))
+    pumsszic.columns=['HHSIZE','HHINC']
+    pumsszic=pd.merge(pumsszic,pums.loc[pums['PUMA']==i,['HHSIZE','HHINC','WGTP']].reset_index(drop=True),how='left',on=['HHSIZE','HHINC'])
+    pumsszic['WGTP']=pumsszic['WGTP'].fillna(0)
+    pumsszic=pumsszic.set_index(['HHSIZE','HHINC'])
+    pumsszic=pumsszic.iloc[:,0]
+    
+    df=pd.DataFrame(ipfn.ipfn.product(hhsize['CT'].unique(),hhsize['HHSIZE'].unique(),hhinc['HHINC'].unique()))
+    df.columns=['CT','HHSIZE','HHINC']
+    df['TOTAL']=np.random.randint(0,100,len(df))
+    # df['TOTAL']=1
+    df=df[['CT','HHSIZE','HHINC','TOTAL']].reset_index(drop=True)
+    
+    hhsize=hhsize.set_index(['CT','HHSIZE'])
+    hhsize=hhsize.iloc[:,0]
+    
+    hhinc=hhinc.set_index(['CT','HHINC'])
+    hhinc=hhinc.iloc[:,0]
+    
+    aggregates=[hhsize,hhinc,pumsszic]
+    dimensions=[['CT','HHSIZE'],['CT','HHINC'],['HHSIZE','HHINC']]
+    
+    df=ipfn.ipfn.ipfn(df,aggregates,dimensions,weight_col='TOTAL',max_iteration=100000).iteration()
+    df=pd.merge(df,ctpuma,how='inner',on='CT')
+    # df.to_csv(path+'ACS/test1.csv',index=False)
+    
+    k=pd.merge(hhsize,df.groupby(['CT','HHSIZE'],as_index=False).agg({'TOTAL':'sum'}).reset_index(drop=True),how='inner',on=['CT','HHSIZE'])
+    k['ERR2']=np.square(k['TOTAL_y']-k['TOTAL_x'])
+    print(np.sqrt(sum(k['ERR2'])/len(k)))
+    p=px.scatter(k,x='TOTAL_x',y='TOTAL_y')
+    p.show()
+    
+    k=pd.merge(hhinc,df.groupby(['CT','HHINC'],as_index=False).agg({'TOTAL':'sum'}).reset_index(drop=True),how='inner',on=['CT','HHINC'])
+    k['ERR2']=np.square(k['TOTAL_y']-k['TOTAL_x'])
+    print(np.sqrt(sum(k['ERR2'])/len(k)))
+    p=px.scatter(k,x='TOTAL_x',y='TOTAL_y')
+    p.show()
+
+    k=pd.merge(pumsszic,df.groupby(['HHSIZE','HHINC'],as_index=False).agg({'TOTAL':'sum'}).reset_index(drop=True),how='inner',on=['HHSIZE','HHINC'])
+    k['ERR2']=np.square(k['TOTAL']-k['WGTP'])
+    print(np.sqrt(sum(k['ERR2'])/len(k)))
+    p=px.scatter(k,x='WGTP',y='TOTAL')
+    p.show()
+    
+
+    
+
+
+
+
+
+
 
 
 
