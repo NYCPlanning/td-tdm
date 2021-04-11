@@ -5,12 +5,13 @@ import plotly.graph_objects as go
 import plotly.express as px
 import plotly.io as pio
 
+pd.set_option('display.max_columns', None)
 path='C:/Users/mayij/Desktop/DOC/DCP2021/TRAVEL DEMAND MODEL/'
-pio.renderers.default = "browser"
+pio.renderers.default='browser'
 
 
 
-ctpuma=pd.read_csv(path+'ACS/ctpuma.csv',dtype=str)
+ctpuma=pd.read_csv(path+'POP/ctpuma.csv',dtype=str)
 
 pums=pd.read_csv(path+'ACS/psam_h36.csv',dtype=str)
 pums=pums.loc[pums['WGTP']!='0',['PUMA','WGTP','NP','HINCP']].reset_index(drop=True)
@@ -43,28 +44,47 @@ pums=pums.groupby(['PUMA','HHSIZE','HHINC'],as_index=False).agg({'WGTP':'sum'}).
 i='3805'
 
 for i in puma:
-    hhsize=pd.read_csv(path+'ACS/hhsize.csv',dtype=float,converters={'CT':str})
+    hhsize=pd.read_csv(path+'POP/hhsize.csv',dtype=float,converters={'CT':str})
     hhsize=pd.merge(hhsize,ctpuma,how='inner',on='CT')
     hhsize=hhsize[hhsize['PUMA']==i].reset_index(drop=True)
     hhsize=hhsize.melt(id_vars=['CT'],value_vars=['SIZE1','SIZE2','SIZE3','SIZE4'],var_name='HHSIZE',value_name='TOTAL')
-    
-    hhinc=pd.read_csv(path+'ACS/hhinc.csv',dtype=float,converters={'CT':str})
+    hhsize.groupby('HHSIZE').agg({'TOTAL':'sum'})
+
+    hhinc=pd.read_csv(path+'POP/hhinc.csv',dtype=float,converters={'CT':str})
     hhinc=pd.merge(hhinc,ctpuma,how='inner',on='CT')
     hhinc=hhinc[hhinc['PUMA']==i].reset_index(drop=True)
     hhinc=hhinc.melt(id_vars=['CT'],value_vars=['INC01','INC02','INC03','INC04','INC05','INC06','INC07','INC08','INC09','INC10','INC11'],var_name='HHINC',value_name='TOTAL')
+    hhinc.groupby('HHINC').agg({'TOTAL':'sum'})
+
+
+
+
+    hhveh=pd.read_csv(path+'POP/hhveh.csv',dtype=float,converters={'CT':str})
+    hhveh=pd.merge(hhveh,ctpuma,how='inner',on='CT')
+    hhveh=hhveh[hhveh['PUMA']==i].reset_index(drop=True)
+    hhveh=hhveh.melt(id_vars=['CT'],value_vars=['VEH0','VEH1','VEH2','VEH3','VEH4'],var_name='HHVEH',value_name='TOTAL')
     
-    pumsszic=pd.DataFrame(ipfn.ipfn.product(hhsize['HHSIZE'].unique(),hhinc['HHINC'].unique()))
-    pumsszic.columns=['HHSIZE','HHINC']
-    pumsszic=pd.merge(pumsszic,pums.loc[pums['PUMA']==i,['HHSIZE','HHINC','WGTP']].reset_index(drop=True),how='left',on=['HHSIZE','HHINC'])
-    pumsszic['WGTP']=pumsszic['WGTP'].fillna(0)
-    pumsszic=pumsszic.set_index(['HHSIZE','HHINC'])
-    pumsszic=pumsszic.iloc[:,0]
+    hhwork=pd.read_csv(path+'POP/hhwork.csv',dtype=float,converters={'CT':str})
+    hhwork=pd.merge(hhwork,ctpuma,how='inner',on='CT')
+    hhwork=hhwork[hhwork['PUMA']==i].reset_index(drop=True)
+    hhwork=hhwork.melt(id_vars=['CT'],value_vars=['WORK0','WORK1','WORK2','WORK3'],var_name='HHWORK',value_name='TOTAL')
+
+    # pumsszic=pd.DataFrame(ipfn.ipfn.product(hhsize['HHSIZE'].unique(),hhinc['HHINC'].unique()))
+    # pumsszic.columns=['HHSIZE','HHINC']
+    # pumsszic=pd.merge(pumsszic,pums.loc[pums['PUMA']==i,['HHSIZE','HHINC','WGTP']].reset_index(drop=True),how='left',on=['HHSIZE','HHINC'])
+    # pumsszic['WGTP']=pumsszic['WGTP'].fillna(0)
+    # pumsszic=pumsszic.set_index(['HHSIZE','HHINC'])
+    # pumsszic=pumsszic.iloc[:,0]
     
-    df=pd.DataFrame(ipfn.ipfn.product(hhsize['CT'].unique(),hhsize['HHSIZE'].unique(),hhinc['HHINC'].unique()))
-    df.columns=['CT','HHSIZE','HHINC']
-    df['TOTAL']=np.random.randint(0,100,len(df))
+    df=pd.DataFrame(ipfn.ipfn.product(hhstr['CT'].unique(),hhstr['HHSTR'].unique(),
+                                      hhsize['HHSIZE'].unique(),hhinc['HHINC'].unique()))
+    df.columns=['CT','HHSTR','HHSIZE','HHINC']
+    df['TOTAL']=np.random.randint(0,10,len(df))
     # df['TOTAL']=1
-    df=df[['CT','HHSIZE','HHINC','TOTAL']].reset_index(drop=True)
+    df=df[['CT','HHSTR','HHSIZE','HHINC','TOTAL']].reset_index(drop=True)
+
+    hhstr=hhstr.set_index(['CT','HHSTR'])
+    hhstr=hhstr.iloc[:,0]
     
     hhsize=hhsize.set_index(['CT','HHSIZE'])
     hhsize=hhsize.iloc[:,0]
@@ -72,13 +92,27 @@ for i in puma:
     hhinc=hhinc.set_index(['CT','HHINC'])
     hhinc=hhinc.iloc[:,0]
     
-    aggregates=[hhsize,hhinc,pumsszic]
-    dimensions=[['CT','HHSIZE'],['CT','HHINC'],['HHSIZE','HHINC']]
+    hhveh=hhveh.set_index(['CT','HHVEH'])
+    hhveh=hhveh.iloc[:,0]
     
-    df=ipfn.ipfn.ipfn(df,aggregates,dimensions,weight_col='TOTAL',max_iteration=100000).iteration()
+    hhwork=hhwork.set_index(['CT','HHWORK'])
+    hhwork=hhwork.iloc[:,0]
+    
+    aggregates=[hhstr,hhsize,hhinc]
+    dimensions=[['CT','HHSTR'],['CT','HHSIZE'],['CT','HHINC']]
+    
+    df=ipfn.ipfn.ipfn(df,aggregates,dimensions,weight_col='TOTAL',convergence_rate=1,rate_tolerance=1,
+                      max_iteration=100000000000).iteration()
+    
+    hhstr.groupby('HHSTR').sum()
+    df.groupby('HHSTR').sum()
+    
+    
     df=pd.merge(df,ctpuma,how='inner',on='CT')
-    # df.to_csv(path+'ACS/test1.csv',index=False)
-    
+    df.to_csv(path+'POP/test1.csv',index=False)
+
+
+
     k=pd.merge(hhsize,df.groupby(['CT','HHSIZE'],as_index=False).agg({'TOTAL':'sum'}).reset_index(drop=True),how='inner',on=['CT','HHSIZE'])
     k['ERR2']=np.square(k['TOTAL_y']-k['TOTAL_x'])
     print(np.sqrt(sum(k['ERR2'])/len(k)))
