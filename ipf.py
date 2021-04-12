@@ -1,9 +1,13 @@
 import ipfn
 import pandas as pd
 import numpy as np
+import sklearn.linear_model
+import statsmodels.api as sm
 import plotly.graph_objects as go
 import plotly.express as px
 import plotly.io as pio
+
+
 
 pd.set_option('display.max_columns', None)
 path='C:/Users/mayij/Desktop/DOC/DCP2021/TRAVEL DEMAND MODEL/'
@@ -11,12 +15,18 @@ pio.renderers.default='browser'
 
 
 
-ctpuma=pd.read_csv(path+'POP/ctpuma.csv',dtype=str)
+bpm=['36005','36047','36061','36081','36085','36059','36103','36119','36087','36079','36071','36027',
+     '09001','09009','34017','34003','34031','34013','34039','34027','34035','34023','34025','34029',
+     '34037','34041','34019','34021']
 
-pums=pd.read_csv(path+'ACS/psam_h36.csv',dtype=str)
-pums=pums.loc[pums['WGTP']!='0',['PUMA','WGTP','NP','HINCP']].reset_index(drop=True)
+geoxwalk=pd.read_csv(path+'POP/GEOIDCROSSWALK.csv',dtype=str)
+
+pums=pd.read_csv(path+'POP/psam_h36.csv',dtype=str)
+pums['PUMA']=pums['ST']+pums['PUMA']
+pums=pums.loc[pums['WGTP']!='0',['PUMA','WGTP','NP','HINCP','BLD']].reset_index(drop=True)
+pums=pd.merge(pums,geoxwalk[['PUMA2010','StateCounty']].drop_duplicates(keep='first'),how='left',left_on='PUMA',right_on='PUMA2010')
+pums=pums[np.isin(pums['StateCounty'],bpm)].reset_index(drop=True)
 pums=pums[pums['NP']!='0'].reset_index(drop=True)
-pums['PUMA']=[x[1:] for x in pums['PUMA']]
 pums['WGTP']=pd.to_numeric(pums['WGTP'])
 pums['NP']=pd.to_numeric(pums['NP'])
 pums['HHSIZE']=np.where(pums['NP']==1,'SIZE1',
@@ -33,58 +43,94 @@ pums['HHINC']=np.where(pums['HINCP']<5000,'INC01',
               np.where(pums['HINCP']<75000,'INC08',
               np.where(pums['HINCP']<100000,'INC09',
               np.where(pums['HINCP']<150000,'INC10','INC11'))))))))))
-pums=pums.groupby(['PUMA','HHSIZE','HHINC'],as_index=False).agg({'WGTP':'sum'}).reset_index(drop=True)
+# pums['HHINC']=np.where(pums['HINCP']<25000,'INC201',
+#               np.where(pums['HINCP']<50000,'INC202',
+#               np.where(pums['HINCP']<75000,'INC203',
+#               np.where(pums['HINCP']<100000,'INC204',
+#               np.where(pums['HINCP']<150000,'INC205','INC206')))))
+# pums['HHINC']=np.where(pums['HINCP']<35000,'INC201',
+#               np.where(pums['HINCP']<75000,'INC202',
+#               np.where(pums['HINCP']<150000,'INC203','INC204')))
+pums['HHSTR']=np.where(np.isin(pums['BLD'],['02','03']),'STR1',
+              np.where(np.isin(pums['BLD'],['04','05','06','07','08','09']),'STR2','STR3'))
+pums=pums[['PUMA','StateCounty','HHSIZE','HHINC','HHSTR','WGTP']].reset_index(drop=True)
+# pumstp=pums.groupby(['PUMA','HHSIZE','HHINC'],as_index=False).agg({'WGTP':'sum'}).reset_index(drop=True)
+# pums=pd.merge(pums,pumstp,how='inner',on=['PUMA','HHSIZE','HHINC'])
+# pums['WGTP']=pums['WGTP_x'].copy()
+# pums['HHSTRPCT']=pums['WGTP_x']/pums['WGTP_y']
+# pums=pums[['PUMA','HHSIZE','HHINC','HHSTR','WGTP','HHSTRPCT']].reset_index(drop=True)
+
+
+
+predstr=pd.concat([pums[['HHSTR','WGTP']],pd.get_dummies(pums[['PUMA','HHSIZE','HHINC']],drop_first=True)],axis=1,ignore_index=False)
+predstrx=predstr.drop(['HHSTR','WGTP'],axis=1)
+predstry=predstr['HHSTR']
+predstrwt=predstr['WGTP']
+predstrreg=sklearn.linear_model.LogisticRegression(max_iter=1000).fit(predstrx,predstry,predstrwt)
+predstrreg.score(predstrx,predstry,predstrwt)
+# ypred=pd.DataFrame({'true':y,'pred':reg.predict(x)})
+# sm.MNLogit(predstry,sm.add_constant(predstrx)).fit().summary()
 
 
 
 
 
-
-
-i='3805'
+i='3603805'
 
 for i in puma:
     hhsize=pd.read_csv(path+'POP/hhsize.csv',dtype=float,converters={'CT':str})
-    hhsize=pd.merge(hhsize,ctpuma,how='inner',on='CT')
-    hhsize=hhsize[hhsize['PUMA']==i].reset_index(drop=True)
+    hhsize=pd.merge(hhsize,geoxwalk[['CensusTract2010','PUMA2010']].drop_duplicates(keep='first'),how='left',left_on='CT',right_on='CensusTract2010')
+    hhsize=hhsize[hhsize['PUMA2010']==i].reset_index(drop=True)
     hhsize=hhsize.melt(id_vars=['CT'],value_vars=['SIZE1','SIZE2','SIZE3','SIZE4'],var_name='HHSIZE',value_name='TOTAL')
     hhsize.groupby('HHSIZE').agg({'TOTAL':'sum'})
 
     hhinc=pd.read_csv(path+'POP/hhinc.csv',dtype=float,converters={'CT':str})
-    hhinc=pd.merge(hhinc,ctpuma,how='inner',on='CT')
-    hhinc=hhinc[hhinc['PUMA']==i].reset_index(drop=True)
+    # hhinc['INC201']=hhinc['INC01']+hhinc['INC02']+hhinc['INC03']+hhinc['INC04']+hhinc['INC05'] #<25k
+    # hhinc['INC202']=hhinc['INC06']+hhinc['INC07'] #25k~50k
+    # hhinc['INC203']=hhinc['INC08'].copy() #50k~75k
+    # hhinc['INC204']=hhinc['INC09'].copy() #75k~100k
+    # hhinc['INC205']=hhinc['INC10'].copy() #100k~150k
+    # hhinc['INC206']=hhinc['INC11'].copy() #>150k
+    # hhinc['INC201']=hhinc['INC01']+hhinc['INC02']+hhinc['INC03']+hhinc['INC04']+hhinc['INC05']+hhinc['INC06'] #<35k
+    # hhinc['INC202']=hhinc['INC07']+hhinc['INC08'] #35k~75k
+    # hhinc['INC203']=hhinc['INC09']+hhinc['INC10'] #75k~150k
+    # hhinc['INC204']=hhinc['INC11'].copy() #>150k
+    hhinc=pd.merge(hhinc,geoxwalk[['CensusTract2010','PUMA2010']].drop_duplicates(keep='first'),how='left',left_on='CT',right_on='CensusTract2010')
+    hhinc=hhinc[hhinc['PUMA2010']==i].reset_index(drop=True)
     hhinc=hhinc.melt(id_vars=['CT'],value_vars=['INC01','INC02','INC03','INC04','INC05','INC06','INC07','INC08','INC09','INC10','INC11'],var_name='HHINC',value_name='TOTAL')
+    # hhinc=hhinc.melt(id_vars=['CT'],value_vars=['INC201','INC202','INC203','INC204','INC205','INC206'],var_name='HHINC',value_name='TOTAL')
+    # hhinc=hhinc.melt(id_vars=['CT'],value_vars=['INC201','INC202','INC203','INC204'],var_name='HHINC',value_name='TOTAL')
     hhinc.groupby('HHINC').agg({'TOTAL':'sum'})
 
+    pumsszinc=pd.DataFrame(ipfn.ipfn.product(hhsize['HHSIZE'].unique(),hhinc['HHINC'].unique()))
+    pumsszinc.columns=['HHSIZE','HHINC']
+    pumsszinctp=pums[pums['PUMA']==i].reset_index(drop=True)
+    pumsszinctp=pumsszinctp.groupby(['HHSIZE','HHINC'],as_index=False).agg({'WGTP':'sum'}).reset_index(drop=True)
+    pumsszinc=pd.merge(pumsszinc,pumsszinctp,how='left',on=['HHSIZE','HHINC'])
+    pumsszinc['TOTAL']=pumsszinc['WGTP'].fillna(0)
+    pumsszinc=pumsszinc[['HHSIZE','HHINC','TOTAL']].reset_index(drop=True)
 
-
-
-    hhveh=pd.read_csv(path+'POP/hhveh.csv',dtype=float,converters={'CT':str})
-    hhveh=pd.merge(hhveh,ctpuma,how='inner',on='CT')
-    hhveh=hhveh[hhveh['PUMA']==i].reset_index(drop=True)
-    hhveh=hhveh.melt(id_vars=['CT'],value_vars=['VEH0','VEH1','VEH2','VEH3','VEH4'],var_name='HHVEH',value_name='TOTAL')
+    # pumsszstr=pd.DataFrame(ipfn.ipfn.product(hhsize['HHSIZE'].unique(),hhstr['HHSTR'].unique()))
+    # pumsszstr.columns=['HHSIZE','HHSTR']
+    # pumsszstrtp=pums[pums['PUMA']==i].reset_index(drop=True)
+    # pumsszstrtp=pumsszstrtp.groupby(['HHSIZE','HHSTR'],as_index=False).agg({'WGTP':'sum'}).reset_index(drop=True)
+    # pumsszstr=pd.merge(pumsszstr,pumsszstrtp,how='left',on=['HHSIZE','HHSTR'])
+    # pumsszstr['TOTAL']=pumsszstr['WGTP'].fillna(0)
+    # pumsszstr=pumsszstr[['HHSIZE','HHSTR','TOTAL']].reset_index(drop=True)
     
-    hhwork=pd.read_csv(path+'POP/hhwork.csv',dtype=float,converters={'CT':str})
-    hhwork=pd.merge(hhwork,ctpuma,how='inner',on='CT')
-    hhwork=hhwork[hhwork['PUMA']==i].reset_index(drop=True)
-    hhwork=hhwork.melt(id_vars=['CT'],value_vars=['WORK0','WORK1','WORK2','WORK3'],var_name='HHWORK',value_name='TOTAL')
-
-    # pumsszic=pd.DataFrame(ipfn.ipfn.product(hhsize['HHSIZE'].unique(),hhinc['HHINC'].unique()))
-    # pumsszic.columns=['HHSIZE','HHINC']
-    # pumsszic=pd.merge(pumsszic,pums.loc[pums['PUMA']==i,['HHSIZE','HHINC','WGTP']].reset_index(drop=True),how='left',on=['HHSIZE','HHINC'])
-    # pumsszic['WGTP']=pumsszic['WGTP'].fillna(0)
-    # pumsszic=pumsszic.set_index(['HHSIZE','HHINC'])
-    # pumsszic=pumsszic.iloc[:,0]
+    # pumsincstr=pd.DataFrame(ipfn.ipfn.product(hhinc['HHINC'].unique(),hhstr['HHSTR'].unique()))
+    # pumsincstr.columns=['HHINC','HHSTR']
+    # pumsincstrtp=pums[pums['PUMA']==i].reset_index(drop=True)
+    # pumsincstrtp=pumsincstrtp.groupby(['HHINC','HHSTR'],as_index=False).agg({'WGTP':'sum'}).reset_index(drop=True)
+    # pumsincstr=pd.merge(pumsincstr,pumsincstrtp,how='left',on=['HHINC','HHSTR'])
+    # pumsincstr['TOTAL']=pumsincstr['WGTP'].fillna(0)
+    # pumsincstr=pumsincstr[['HHINC','HHSTR','TOTAL']].reset_index(drop=True) 
     
-    df=pd.DataFrame(ipfn.ipfn.product(hhstr['CT'].unique(),hhstr['HHSTR'].unique(),
-                                      hhsize['HHSIZE'].unique(),hhinc['HHINC'].unique()))
-    df.columns=['CT','HHSTR','HHSIZE','HHINC']
-    df['TOTAL']=np.random.randint(0,10,len(df))
-    # df['TOTAL']=1
-    df=df[['CT','HHSTR','HHSIZE','HHINC','TOTAL']].reset_index(drop=True)
-
-    hhstr=hhstr.set_index(['CT','HHSTR'])
-    hhstr=hhstr.iloc[:,0]
+    tp=pd.DataFrame(ipfn.ipfn.product(hhsize['CT'].unique(),hhsize['HHSIZE'].unique(),hhinc['HHINC'].unique()))
+    tp.columns=['CT','HHSIZE','HHINC']
+    tp['TOTAL']=np.random.randint(1,10,len(tp))
+    # tp['TOTAL']=1
+    tp=tp[['CT','HHSIZE','HHINC','TOTAL']].reset_index(drop=True)
     
     hhsize=hhsize.set_index(['CT','HHSIZE'])
     hhsize=hhsize.iloc[:,0]
@@ -92,148 +138,107 @@ for i in puma:
     hhinc=hhinc.set_index(['CT','HHINC'])
     hhinc=hhinc.iloc[:,0]
     
-    hhveh=hhveh.set_index(['CT','HHVEH'])
-    hhveh=hhveh.iloc[:,0]
-    
-    hhwork=hhwork.set_index(['CT','HHWORK'])
-    hhwork=hhwork.iloc[:,0]
-    
-    aggregates=[hhstr,hhsize,hhinc]
-    dimensions=[['CT','HHSTR'],['CT','HHSIZE'],['CT','HHINC']]
-    
-    df=ipfn.ipfn.ipfn(df,aggregates,dimensions,weight_col='TOTAL',convergence_rate=1,rate_tolerance=1,
-                      max_iteration=100000000000).iteration()
-    
-    hhstr.groupby('HHSTR').sum()
-    df.groupby('HHSTR').sum()
-    
-    
-    df=pd.merge(df,ctpuma,how='inner',on='CT')
-    df.to_csv(path+'POP/test1.csv',index=False)
+    pumsszinc=pumsszinc.set_index(['HHSIZE','HHINC'])
+    pumsszinc=pumsszinc.iloc[:,0]
 
-
-
-    k=pd.merge(hhsize,df.groupby(['CT','HHSIZE'],as_index=False).agg({'TOTAL':'sum'}).reset_index(drop=True),how='inner',on=['CT','HHSIZE'])
-    k['ERR2']=np.square(k['TOTAL_y']-k['TOTAL_x'])
-    print(np.sqrt(sum(k['ERR2'])/len(k)))
+    aggregates=[hhsize,hhinc,pumsszinc]
+    dimensions=[['CT','HHSIZE'],['CT','HHINC'],['HHSIZE','HHINC']]
+    
+    tp=ipfn.ipfn.ipfn(tp,aggregates,dimensions,weight_col='TOTAL',max_iteration=1000000000).iteration()
+    
+    k=pd.merge(hhsize,tp.groupby(['CT','HHSIZE'],as_index=False).agg({'TOTAL':'sum'}).reset_index(drop=True),how='inner',on=['CT','HHSIZE'])
     p=px.scatter(k,x='TOTAL_x',y='TOTAL_y')
     p.show()
     
-    k=pd.merge(hhinc,df.groupby(['CT','HHINC'],as_index=False).agg({'TOTAL':'sum'}).reset_index(drop=True),how='inner',on=['CT','HHINC'])
-    k['ERR2']=np.square(k['TOTAL_y']-k['TOTAL_x'])
-    print(np.sqrt(sum(k['ERR2'])/len(k)))
+    k=pd.merge(hhinc,tp.groupby(['CT','HHINC'],as_index=False).agg({'TOTAL':'sum'}).reset_index(drop=True),how='inner',on=['CT','HHINC'])
     p=px.scatter(k,x='TOTAL_x',y='TOTAL_y')
     p.show()
 
-    k=pd.merge(pumsszic,df.groupby(['HHSIZE','HHINC'],as_index=False).agg({'TOTAL':'sum'}).reset_index(drop=True),how='inner',on=['HHSIZE','HHINC'])
-    k['ERR2']=np.square(k['TOTAL']-k['WGTP'])
-    print(np.sqrt(sum(k['ERR2'])/len(k)))
-    p=px.scatter(k,x='WGTP',y='TOTAL')
+    k=pd.merge(pumsszinc,tp.groupby(['HHSIZE','HHINC'],as_index=False).agg({'TOTAL':'sum'}).reset_index(drop=True),how='inner',on=['HHSIZE','HHINC'])
+    p=px.scatter(k,x='TOTAL_x',y='TOTAL_y')
     p.show()
     
+    tp=pd.concat([tp[['CT','TOTAL']],pd.get_dummies(tp[['HHSIZE','HHINC']],drop_first=True)],axis=1,ignore_index=False)
+    for j in predstrx.columns[:94]:
+        tp[j]=0
+    tp['PUMA_'+i]=1
+    tp['PREDHHSTR']=predstrreg.predict(tp.drop(['CT','TOTAL'],axis=1))
+    tp['HHSIZE']=np.where((tp['HHSIZE_SIZE2']==0)&(tp['HHSIZE_SIZE3']==0)&(tp['HHSIZE_SIZE4']==0),'SIZE1',
+                 np.where((tp['HHSIZE_SIZE2']==1)&(tp['HHSIZE_SIZE3']==0)&(tp['HHSIZE_SIZE4']==0),'SIZE2',
+                 np.where((tp['HHSIZE_SIZE2']==0)&(tp['HHSIZE_SIZE3']==1)&(tp['HHSIZE_SIZE4']==0),'SIZE3',
+                 np.where((tp['HHSIZE_SIZE2']==0)&(tp['HHSIZE_SIZE3']==0)&(tp['HHSIZE_SIZE4']==1),'SIZE4','OTHER'))))
+    tp['HHINC']=np.where((tp['HHINC_INC02']==0)&(tp['HHINC_INC03']==0)&(tp['HHINC_INC04']==0)&(tp['HHINC_INC05']==0)&(tp['HHINC_INC06']==0)&(tp['HHINC_INC07']==0)&(tp['HHINC_INC08']==0)&(tp['HHINC_INC09']==0)&(tp['HHINC_INC10']==0)&(tp['HHINC_INC11']==0),'INC01',
+                np.where((tp['HHINC_INC02']==1)&(tp['HHINC_INC03']==0)&(tp['HHINC_INC04']==0)&(tp['HHINC_INC05']==0)&(tp['HHINC_INC06']==0)&(tp['HHINC_INC07']==0)&(tp['HHINC_INC08']==0)&(tp['HHINC_INC09']==0)&(tp['HHINC_INC10']==0)&(tp['HHINC_INC11']==0),'INC02',
+                np.where((tp['HHINC_INC02']==0)&(tp['HHINC_INC03']==1)&(tp['HHINC_INC04']==0)&(tp['HHINC_INC05']==0)&(tp['HHINC_INC06']==0)&(tp['HHINC_INC07']==0)&(tp['HHINC_INC08']==0)&(tp['HHINC_INC09']==0)&(tp['HHINC_INC10']==0)&(tp['HHINC_INC11']==0),'INC03',
+                np.where((tp['HHINC_INC02']==0)&(tp['HHINC_INC03']==0)&(tp['HHINC_INC04']==1)&(tp['HHINC_INC05']==0)&(tp['HHINC_INC06']==0)&(tp['HHINC_INC07']==0)&(tp['HHINC_INC08']==0)&(tp['HHINC_INC09']==0)&(tp['HHINC_INC10']==0)&(tp['HHINC_INC11']==0),'INC04',
+                np.where((tp['HHINC_INC02']==0)&(tp['HHINC_INC03']==0)&(tp['HHINC_INC04']==0)&(tp['HHINC_INC05']==1)&(tp['HHINC_INC06']==0)&(tp['HHINC_INC07']==0)&(tp['HHINC_INC08']==0)&(tp['HHINC_INC09']==0)&(tp['HHINC_INC10']==0)&(tp['HHINC_INC11']==0),'INC05',
+                np.where((tp['HHINC_INC02']==0)&(tp['HHINC_INC03']==0)&(tp['HHINC_INC04']==0)&(tp['HHINC_INC05']==0)&(tp['HHINC_INC06']==1)&(tp['HHINC_INC07']==0)&(tp['HHINC_INC08']==0)&(tp['HHINC_INC09']==0)&(tp['HHINC_INC10']==0)&(tp['HHINC_INC11']==0),'INC06',
+                np.where((tp['HHINC_INC02']==0)&(tp['HHINC_INC03']==0)&(tp['HHINC_INC04']==0)&(tp['HHINC_INC05']==0)&(tp['HHINC_INC06']==0)&(tp['HHINC_INC07']==1)&(tp['HHINC_INC08']==0)&(tp['HHINC_INC09']==0)&(tp['HHINC_INC10']==0)&(tp['HHINC_INC11']==0),'INC07',
+                np.where((tp['HHINC_INC02']==0)&(tp['HHINC_INC03']==0)&(tp['HHINC_INC04']==0)&(tp['HHINC_INC05']==0)&(tp['HHINC_INC06']==0)&(tp['HHINC_INC07']==0)&(tp['HHINC_INC08']==1)&(tp['HHINC_INC09']==0)&(tp['HHINC_INC10']==0)&(tp['HHINC_INC11']==0),'INC08',
+                np.where((tp['HHINC_INC02']==0)&(tp['HHINC_INC03']==0)&(tp['HHINC_INC04']==0)&(tp['HHINC_INC05']==0)&(tp['HHINC_INC06']==0)&(tp['HHINC_INC07']==0)&(tp['HHINC_INC08']==0)&(tp['HHINC_INC09']==1)&(tp['HHINC_INC10']==0)&(tp['HHINC_INC11']==0),'INC09',
+                np.where((tp['HHINC_INC02']==0)&(tp['HHINC_INC03']==0)&(tp['HHINC_INC04']==0)&(tp['HHINC_INC05']==0)&(tp['HHINC_INC06']==0)&(tp['HHINC_INC07']==0)&(tp['HHINC_INC08']==0)&(tp['HHINC_INC09']==0)&(tp['HHINC_INC10']==1)&(tp['HHINC_INC11']==0),'INC10',
+                np.where((tp['HHINC_INC02']==0)&(tp['HHINC_INC03']==0)&(tp['HHINC_INC04']==0)&(tp['HHINC_INC05']==0)&(tp['HHINC_INC06']==0)&(tp['HHINC_INC07']==0)&(tp['HHINC_INC08']==0)&(tp['HHINC_INC09']==0)&(tp['HHINC_INC10']==0)&(tp['HHINC_INC11']==1),'INC11','OTHER')))))))))))
+    tp=tp[['CT','TOTAL','HHSIZE','HHINC','PREDHHSTR']].reset_index(drop=True)
+    tp.groupby('PREDHHSTR').agg({'TOTAL':'sum'})
 
+
+
+
+    hhstr=pd.read_csv(path+'POP/hhstr.csv',dtype=float,converters={'CT':str})
+    hhstr=pd.merge(hhstr,geoxwalk[['CensusTract2010','PUMA2010']].drop_duplicates(keep='first'),how='left',left_on='CT',right_on='CensusTract2010')
+    hhstr=hhstr[hhstr['PUMA2010']==i].reset_index(drop=True)
+
+    k=tp.groupby(['CT','PREDHHSTR'],as_index=False).agg({'TOTAL':'sum'}).reset_index(drop=True)
+    k=k.pivot(index='CT',columns='PREDHHSTR',values='TOTAL').reset_index(drop=False)
+    k=pd.merge(hhstr,k,how='inner',on=['CT'])
+    k['STR1']=np.where((k['STR1_y']<=k['STR1_x']+k['STR1M'])&(k['STR1_y']>=k['STR1_x']-k['STR1M']),1,0)
+    k['STR2']=np.where((k['STR2_y']<=k['STR2_x']+k['STR2M'])&(k['STR2_y']>=k['STR2_x']-k['STR2M']),1,0)
+    k['STR']=np.where((k['STR1']==1)&(k['STR2']==1),1,0)
+    sum(k['STR'])/len(k)
+
+    k=tp.groupby(['CT','PREDHHSTR'],as_index=False).agg({'TOTAL':'sum'}).reset_index(drop=True)
+    k=pd.merge(hhstr.melt(id_vars=['CT'],value_vars=['STR1','STR2'],var_name='HHSTR',value_name='TOTAL'),k,how='inner',left_on=['CT','HHSTR'],right_on=['CT','PREDHHSTR'])
+    p=px.scatter(k,x='TOTAL_x',y='TOTAL_y')
+    p.show()
+        
+    pumsszincstr=pd.DataFrame(ipfn.ipfn.product(tp['HHSIZE'].unique(),tp['HHINC'].unique(),tp['PREDHHSTR'].unique()))
+    pumsszincstr.columns=['HHSIZE','HHINC','HHSTR']
+    pumsszincstrtp=pums[pums['PUMA']==i].reset_index(drop=True)
+    pumsszincstrtp=pumsszincstrtp.groupby(['HHSIZE','HHINC','HHSTR'],as_index=False).agg({'WGTP':'sum'}).reset_index(drop=True)
+    pumsszincstr=pd.merge(pumsszincstr,pumsszincstrtp,how='left',on=['HHSIZE','HHINC','HHSTR'])
+    pumsszincstr['TOTAL']=pumsszincstr['WGTP'].fillna(0)
+    pumsszincstr=pumsszincstr[['HHSIZE','HHINC','HHSTR','TOTAL']].reset_index(drop=True)
+    k=tp.groupby(['HHSIZE','HHINC','PREDHHSTR'],as_index=False).agg({'TOTAL':'sum'}).reset_index(drop=True)
+    k=pd.merge(pumsszincstr,k,how='inner',left_on=['HHSIZE','HHINC','HHSTR'],right_on=['HHSIZE','HHINC','PREDHHSTR'])
+    p=px.scatter(k,x='TOTAL_x',y='TOTAL_y',hover_data=['HHSIZE','HHINC','HHSTR'])
+    p.show()
+    
+    
+    
+    tp.to_csv(path+'POP/test1.csv',index=False)
+
+
+
+    # k=pd.merge(hhsize,df.groupby(['CT','HHSIZE'],as_index=False).agg({'TOTAL':'sum'}).reset_index(drop=True),how='inner',on=['CT','HHSIZE'])
+    # k['ERR2']=np.square(k['TOTAL_y']-k['TOTAL_x'])
+    # print(np.sqrt(sum(k['ERR2'])/len(k)))
+    # p=px.scatter(k,x='TOTAL_x',y='TOTAL_y')
+    # p.show()
+    
+    # k=pd.merge(hhinc,df.groupby(['CT','HHINC'],as_index=False).agg({'TOTAL':'sum'}).reset_index(drop=True),how='inner',on=['CT','HHINC'])
+    # k['ERR2']=np.square(k['TOTAL_y']-k['TOTAL_x'])
+    # print(np.sqrt(sum(k['ERR2'])/len(k)))
+    # p=px.scatter(k,x='TOTAL_x',y='TOTAL_y')
+    # p.show()
+
+    # k=pd.merge(pumsszic,df.groupby(['HHSIZE','HHINC'],as_index=False).agg({'TOTAL':'sum'}).reset_index(drop=True),how='inner',on=['HHSIZE','HHINC'])
+    # k['ERR2']=np.square(k['TOTAL']-k['WGTP'])
+    # print(np.sqrt(sum(k['ERR2'])/len(k)))
+    # p=px.scatter(k,x='WGTP',y='TOTAL')
+    # p.show()
     
 
-
-
-
-
-
-
-
-
-sex=pd.read_csv(path+'ACSSEX.csv')
-race=pd.read_csv(path+'ACSRACE.csv')
-age=pd.read_csv(path+'ACSAGE.csv')
-pums=pd.read_csv(path+'PUMS.csv')
-pums['SEX']=np.where(pums['SEX']==1,'MALE','FEMALE')
-pums['RACE']=np.where(np.isin(pums['RAC1P'],[1]),'WHITE',np.where(np.isin(pums['RAC1P'],[2]),'BLACK',
-             np.where(np.isin(pums['RAC1P'],[6]),'ASIAN','OTHER')))
-pums['AGE']=np.where(pums['AGEP']<=24,'A<=24',np.where(pums['AGEP']<=34,'A25-34',
-            np.where(pums['AGEP']<=54,'A35-54',np.where(pums['AGEP']<=64,'A55-64','A>=65'))))
-
-
-
-# df=pd.DataFrame(data=np.repeat(sex['CT'],len(pums['SEX'].unique())*len(pums['RACE'].unique())*len(pums['AGE'].unique()))).reset_index(drop=True)
-# df['SEX']=list(np.repeat(['FEMALE','MALE'],len(pums['RACE'].unique())*len(pums['AGE'].unique())))*len(sex['CT'].unique())
-# df['RACE']=list(np.repeat(['ASIAN','BLACK','OTHER','WHITE'],len(pums['AGE'].unique())))*len(pums['SEX'].unique())*len(sex['CT'].unique())
-# df['AGE']=['A25-34','A35-54','A55-64','A<=24','A>=65']*len(pums['SEX'].unique())*len(pums['RACE'].unique())*len(sex['CT'].unique())
-# df['total']=1
-
-df=pd.DataFrame(data=np.repeat(sex['CT'],len(pums['SEX'].unique())*len(pums['AGE'].unique()))).reset_index(drop=True)
-df['SEX']=list(np.repeat(['FEMALE','MALE'],len(pums['AGE'].unique())))*len(sex['CT'].unique())
-df['AGE']=['A25-34','A35-54','A55-64','A<=24','A>=65']*len(pums['SEX'].unique())*len(sex['CT'].unique())
-df['total']=1
-
-# pumasexraceage=df.groupby(['SEX','RACE','AGE'],as_index=False)['total'].sum()
-# pumasexraceage['total']=list(pums.groupby(['SEX','RACE','AGE'])['PWGTP'].sum())
-# pumasexraceage=pumasexraceage.set_index(['SEX','RACE','AGE'])
-# pumasexraceage=pumasexraceage.iloc[:,0]
-
-pumasexage=df.groupby(['SEX','AGE'],as_index=False)['total'].sum()
-pumasexage['total']=list(pums.groupby(['SEX','AGE'])['PWGTP'].sum())
-pumasexage=pumasexage.set_index(['SEX','AGE'])
-pumasexage=pumasexage.iloc[:,0]
-
-ctsex=sex.melt(id_vars=['CT'],value_vars=['FEMALE','MALE'],var_name='SEX',value_name='total')
-ctsex=ctsex.set_index(['CT','SEX'])
-ctsex=ctsex.iloc[:,0]
-
-ctrace=race.melt(id_vars=['CT'],value_vars=['ASIAN','BLACK','OTHER','WHITE'],
-                 var_name='RACE',value_name='total')
-ctrace=ctrace.set_index(['CT','RACE'])
-ctrace=ctrace.iloc[:,0]
-
-ctage=age.melt(id_vars=['CT'],value_vars=['A25-34','A35-54','A55-64','A<=24','A>=65'],
-               var_name='AGE',value_name='total')
-ctage=ctage.set_index(['CT','AGE'])
-ctage=ctage.iloc[:,0]
-
-
-
-# aggregates=[pumasexraceage,ctsex,ctrace,ctage]
-# dimensions=[['SEX','RACE','AGE'],['CT','SEX'],['CT','RACE'],['CT','AGE']]
-
-aggregates=[pumasexage,ctsex,ctage]
-dimensions=[['SEX','AGE'],['CT','SEX'],['CT','AGE']]
-
-IPF=ipfn.ipfn.ipfn(df,aggregates,dimensions,convergence_rate=1,rate_tolerance=1,max_iteration=100000)
-df=IPF.iteration()
-
-
-
-
-k=pd.concat([pumasexage.groupby('SEX').sum(),df.groupby('SEX')['total'].sum()],axis=1)
-k=pd.concat([pumasexage.groupby('AGE').sum(),df.groupby('AGE')['total'].sum()],axis=1)
-k=pd.concat([pumasexage,df.groupby(['SEX','AGE'])['total'].sum()],axis=1)
-
-# k=pd.concat([pumasexraceage.groupby('SEX').sum(),df.groupby('SEX')['total'].sum()],axis=1)
-# k=pd.concat([pumasexraceage.groupby('RACE').sum(),df.groupby('RACE')['total'].sum()],axis=1)
-# k=pd.concat([pumasexraceage.groupby('AGE').sum(),df.groupby('AGE')['total'].sum()],axis=1)
-# k=pd.concat([pumasexraceage,df.groupby(['SEX','RACE','AGE'])['total'].sum()],axis=1)
-k=pd.concat([ctsex,df.groupby(['CT','SEX'])['total'].sum()],axis=1)
-k=pd.concat([ctrace,df.groupby(['CT','RACE'])['total'].sum()],axis=1)
-k=pd.concat([ctage,df.groupby(['CT','AGE'])['total'].sum()],axis=1)
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
+    
 
 
 
