@@ -13,12 +13,12 @@ import shapely
 pd.set_option('display.max_columns', None)
 
 
-rhts=pd.read_csv('C:/Users/mayij/Desktop/DOC/DCP2021/TRAVEL DEMAND MODEL/RHTS/LINKED_Public.csv',dtype=str)
-rhts['pid']=rhts['SAMPN']+'|'+rhts['PERNO']
 
+rhtstrip=pd.read_csv('C:/Users/mayij/Desktop/DOC/DCP2021/TRAVEL DEMAND MODEL/RHTS/LINKED_Public.csv',dtype=str)
+rhtstrip['pid']=rhtstrip['SAMPN']+'|'+rhtstrip['PERNO']
 df=[]
-for i in rhts['pid'].unique():
-    tp=rhts[rhts['pid']==i].reset_index(drop=True)
+for i in rhtstrip['pid'].unique():
+    tp=rhtstrip[rhtstrip['pid']==i].reset_index(drop=True)
     tp['hour']=pd.to_numeric(tp['TRP_ARR_HR'])
     tp['min']=pd.to_numeric(tp['TRP_ARR_MIN'])
     tp=tp.sort_values(['hour','min']).reset_index(drop=True)
@@ -33,20 +33,45 @@ for i in rhts['pid'].unique():
             tp.loc[j,'dest']=tp.loc[j-1,'dest']
     tp=tp[pd.notna(tp['dest'])].drop_duplicates(keep='first').sort_values(['hour']).reset_index(drop=True)
     tp['pid']=i
-    tp['wt']=pd.to_numeric(list(rhts.loc[rhts['pid']==i,'HH_WHT2'])[0])
+    tp['wt']=pd.to_numeric(list(rhtstrip.loc[rhtstrip['pid']==i,'HH_WHT2'])[0])
     tp=tp[['pid','wt','hour','dest']].reset_index(drop=True)
     df+=[tp]
 df=pd.concat(df,axis=0,ignore_index=True)
 df=df.groupby(['dest','hour'],as_index=False).agg({'wt':'sum'}).reset_index(drop=True)
 df=df.pivot(index='dest',columns='hour',values='wt').reset_index(drop=False)
-df.to_csv('C:/Users/mayij/Desktop/DOC/GITHUB/td-tdm/rhts.csv',index=False)
+df.to_csv('C:/Users/mayij/Desktop/DOC/GITHUB/td-tdm/rhtstrip.csv',index=False)
 
 
-df=pd.read_csv('C:/Users/mayij/Desktop/DOC/GITHUB/td-tdm/rhts.csv')
+
+
+rhtsps=pd.read_csv('C:/Users/mayij/Desktop/DOC/DCP2021/TRAVEL DEMAND MODEL/RHTS/PER_Public.csv',dtype=str,encoding='latin-1')
+rhtshh=pd.read_csv('C:/Users/mayij/Desktop/DOC/DCP2021/TRAVEL DEMAND MODEL/RHTS/HH_Public.csv',dtype=str,encoding='latin-1')
+df=pd.merge(rhtsps,rhtshh,how='inner',on='SAMPN')
+df['pid']=df['SAMPN']+'|'+df['PERNO']
+df['wt']=pd.to_numeric(df['HH_WHT2_x'])
+df['dest']=df['HTRACT'].copy()
+df=df.loc[df['PTRIPS']=='0',['pid','wt','dest']].reset_index(drop=True)
+df=df.groupby(['dest'],as_index=False).agg({'wt':'sum'}).reset_index(drop=True)
+for i in ['h'+str(x).zfill(2) for x in range(0,24)]:
+    df[i]=df['wt'].copy()
+df=df[['dest']+['h'+str(x).zfill(2) for x in range(0,24)]].reset_index(drop=True)
+df.to_csv('C:/Users/mayij/Desktop/DOC/GITHUB/td-tdm/rhtsnontrip.csv',index=False)
+
+
+
+
+
+
+
+rhtstrip=pd.read_csv('C:/Users/mayij/Desktop/DOC/GITHUB/td-tdm/rhtstrip.csv')
+rhtsnontrip=pd.read_csv('C:/Users/mayij/Desktop/DOC/GITHUB/td-tdm/rhtsnontrip.csv')
+df=pd.merge(rhtstrip,rhtsnontrip,how='outer',on='dest')
+df=df.fillna(0)
+for i in ['h'+str(x).zfill(2) for x in range(0,24)]:
+    df[i]=df[i+'_x']+df[i+'_y']
 df['tractid']=[str(x).zfill(11) for x in df['dest']]
 df['county']=[x[0:5] for x in df['tractid']]
 df=df[np.isin(df['county'],['36005','36047','36061','36081','36085'])].reset_index(drop=True)
-df=df.fillna(0)
 quadstatect=gpd.read_file('C:/Users/mayij/Desktop/DOC/DCP2018/TRAVELSHEDREVAMP/shp/quadstatectclipped.shp')
 quadstatect.crs=4326
 df=pd.merge(quadstatect,df,how='inner',on='tractid')
