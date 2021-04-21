@@ -53,6 +53,13 @@ df=pd.merge(quadstatect,df,how='inner',on='tractid')
 df=df[['tractid','h00','h01','h02','h03','h04','h05','h06','h07','h08','h09','h10','h11','h12','h13','h14','h15',
        'h16','h17','h18','h19','h20','h21','h22','h23','geometry']].reset_index(drop=True)
 # df=df.melt(id_vars=['tractid','geometry'],value_vars=['h'+str(x).zfill(2) for x in range(0,24)])
+# df['h17'].describe(percentiles=np.arange(0.2,1,0.2))
+for i in ['h'+str(x).zfill(2) for x in range(0,24)]:
+    df[i+'cat']=np.where(df[i]>10000,'> 10,000',
+                np.where(df[i]>8000,'8,001 ~ 10,000',
+                np.where(df[i]>6000,'6,001 ~ 8,000',
+                np.where(df[i]>4000,'4,001 ~ 6,000',
+                np.where(df[i]>2000,'2,001 ~ 4,000','<= 2,000')))))
 df.to_file('C:/Users/mayij/Desktop/DOC/GITHUB/td-tdm/rhts.geojson',driver='GeoJSON')
 
 
