@@ -18,20 +18,38 @@ bpm=['36005','36047','36061','36081','36085','36059','36103','36119','36087','36
 # Household Total
 df=[]
 for i in bpm:
-    rs=requests.get('https://api.census.gov/data/2019/acs/acs5/subject?get=NAME,group(S2501)&for=tract:*&in=state:'+i[:2]+' county:'+i[2:]+'&key='+apikey).json()
+    rs=requests.get('https://api.census.gov/data/2019/acs/acs5/?get=NAME,group(B25002)&for=tract:*&in=state:'+i[:2]+' county:'+i[2:]+'&key='+apikey).json()
     rs=pd.DataFrame(rs)
     rs.columns=rs.loc[0]
     rs=rs.loc[1:].reset_index(drop=True)
     rs['geoid']=[x[9:] for x in rs['GEO_ID']]
-    rs=rs[['geoid','S2501_C01_001E','S2501_C01_001M']].reset_index(drop=True)
+    rs=rs[['geoid','B25002_001E','B25002_001M']].reset_index(drop=True)
     rs.columns=['CT','TT','TTM']
     df+=[rs]
 df=pd.concat(df,axis=0,ignore_index=True)
-df.to_csv(path+'POP/hhtt.csv',index=False)
+df.to_csv(path+'POP/ACS/hhtt.csv',index=False)
+
+
+
+# Household Occupancy
+df=[]
+for i in bpm:
+    rs=requests.get('https://api.census.gov/data/2019/acs/acs5/?get=NAME,group(B25002)&for=tract:*&in=state:'+i[:2]+' county:'+i[2:]+'&key='+apikey).json()
+    rs=pd.DataFrame(rs)
+    rs.columns=rs.loc[0]
+    rs=rs.loc[1:].reset_index(drop=True)
+    rs['geoid']=[x[9:] for x in rs['GEO_ID']]
+    rs=rs[['geoid','B25002_001E','B25002_001M','B25002_002E','B25002_002M',
+           'B25002_003E','B25002_003M']].reset_index(drop=True)
+    rs.columns=['CT','TT','TTM','OCC','OCCM','VAC','VACM']
+    df+=[rs]
+df=pd.concat(df,axis=0,ignore_index=True)
+df.to_csv(path+'POP/ACS/hhocc.csv',index=False)
 
 
 
 # Household Size
+hhocc=pd.read_csv(path+'POP/ACS/hhocc.csv',dtype=str)
 df=[]
 for i in bpm:
     rs=requests.get('https://api.census.gov/data/2019/acs/acs5/subject?get=NAME,group(S2501)&for=tract:*&in=state:'+i[:2]+' county:'+i[2:]+'&key='+apikey).json()
@@ -39,17 +57,20 @@ for i in bpm:
     rs.columns=rs.loc[0]
     rs=rs.loc[1:].reset_index(drop=True)
     rs['geoid']=[x[9:] for x in rs['GEO_ID']]
-    rs=rs[['geoid','S2501_C01_001E','S2501_C01_001M','S2501_C01_002E','S2501_C01_002M',
-           'S2501_C01_003E','S2501_C01_003M','S2501_C01_004E','S2501_C01_004M',
-           'S2501_C01_005E','S2501_C01_005M']].reset_index(drop=True)
-    rs.columns=['CT','TT','TTM','SIZE1','SIZE1M','SIZE2','SIZE2M','SIZE3','SIZE3M','SIZE4','SIZE4M']
+    rs=rs[['geoid','S2501_C01_002E','S2501_C01_002M','S2501_C01_003E','S2501_C01_003M',
+           'S2501_C01_004E','S2501_C01_004M','S2501_C01_005E','S2501_C01_005M']].reset_index(drop=True)
+    rs.columns=['CT','SIZE1','SIZE1M','SIZE2','SIZE2M','SIZE3','SIZE3M','SIZE4','SIZE4M']
     df+=[rs]
 df=pd.concat(df,axis=0,ignore_index=True)
-df.to_csv(path+'POP/hhsize.csv',index=False)
+df=pd.merge(df,hhocc,how='inner',on='CT')
+df=df[['CT','TT','TTM','VAC','VACM','SIZE1','SIZE1M','SIZE2','SIZE2M','SIZE3','SIZE3M',
+       'SIZE4','SIZE4M']].reset_index(drop=True)
+df.to_csv(path+'POP/ACS/hhsize.csv',index=False)
 
 
 
 # Household Type
+hhocc=pd.read_csv(path+'POP/ACS/hhocc.csv',dtype=str)
 df=[]
 for i in bpm:
     rs=requests.get('https://api.census.gov/data/2019/acs/acs5/profile?get=NAME,group(DP02)&for=tract:*&in=state:'+i[:2]+' county:'+i[2:]+'&key='+apikey).json()
@@ -57,21 +78,24 @@ for i in bpm:
     rs.columns=rs.loc[0]
     rs=rs.loc[1:].reset_index(drop=True)
     rs['geoid']=[x[9:] for x in rs['GEO_ID']]
-    rs=rs[['geoid','DP02_0001E','DP02_0001M','DP02_0002E','DP02_0002M',
-           'DP02_0003E','DP02_0003M','DP02_0004E','DP02_0004M',
-           'DP02_0005E','DP02_0005M','DP02_0006E','DP02_0006M',
-           'DP02_0007E','DP02_0007M','DP02_0008E','DP02_0008M',
-           'DP02_0010E','DP02_0010M','DP02_0011E','DP02_0011M',
-           'DP02_0012E','DP02_0012M']].reset_index(drop=True)
-    rs.columns=['CT','TT','TTM','MC','MCM','MCC','MCCM','CC','CCM','CCC','CCCM','MH','MHM','MHC','MHCM',
+    rs=rs[['geoid','DP02_0002E','DP02_0002M','DP02_0003E','DP02_0003M',
+           'DP02_0004E','DP02_0004M','DP02_0005E','DP02_0005M',
+           'DP02_0006E','DP02_0006M','DP02_0007E','DP02_0007M',
+           'DP02_0008E','DP02_0008M','DP02_0010E','DP02_0010M',
+           'DP02_0011E','DP02_0011M','DP02_0012E','DP02_0012M']].reset_index(drop=True)
+    rs.columns=['CT','MC','MCM','MCC','MCCM','CC','CCM','CCC','CCCM','MH','MHM','MHC','MHCM',
                 'MHA','MHAM','FH','FHM','FHC','FHCM','FHA','FHAM']
     df+=[rs]
 df=pd.concat(df,axis=0,ignore_index=True)
-df.to_csv(path+'POP/hhtype.csv',index=False)
+df=pd.merge(df,hhocc,how='inner',on='CT')
+df=df[['CT','TT','TTM','VAC','VACM','MC','MCM','MCC','MCCM','CC','CCM','CCC','CCCM','MH','MHM',
+       'MHC','MHCM','MHA','MHAM','FH','FHM','FHC','FHCM','FHA','FHAM']].reset_index(drop=True)
+df.to_csv(path+'POP/ACS/hhtype.csv',index=False)
 
 
 
 # Household Income
+hhocc=pd.read_csv(path+'POP/ACS/hhocc.csv',dtype=str)
 df=[]
 for i in bpm:
     rs=requests.get('https://api.census.gov/data/2019/acs/acs5/subject?get=NAME,group(S2503)&for=tract:*&in=state:'+i[:2]+' county:'+i[2:]+'&key='+apikey).json()
@@ -79,22 +103,27 @@ for i in bpm:
     rs.columns=rs.loc[0]
     rs=rs.loc[1:].reset_index(drop=True)
     rs['geoid']=[x[9:] for x in rs['GEO_ID']]
-    rs=rs[['geoid','S2503_C01_001E','S2503_C01_001M','S2503_C01_002E','S2503_C01_002M',
-           'S2503_C01_003E','S2503_C01_003M','S2503_C01_004E','S2503_C01_004M',
-           'S2503_C01_005E','S2503_C01_005M','S2503_C01_006E','S2503_C01_006M',
-           'S2503_C01_007E','S2503_C01_007M','S2503_C01_008E','S2503_C01_008M',
-           'S2503_C01_009E','S2503_C01_009M','S2503_C01_010E','S2503_C01_010M',
-           'S2503_C01_011E','S2503_C01_011M','S2503_C01_012E','S2503_C01_012M']].reset_index(drop=True)
-    rs.columns=['CT','TT','TTM','INC01','INC01M','INC02','INC02M','INC03','INC03M','INC04','INC04M',
+    rs=rs[['geoid','S2503_C01_002E','S2503_C01_002M','S2503_C01_003E','S2503_C01_003M',
+           'S2503_C01_004E','S2503_C01_004M','S2503_C01_005E','S2503_C01_005M',
+           'S2503_C01_006E','S2503_C01_006M','S2503_C01_007E','S2503_C01_007M',
+           'S2503_C01_008E','S2503_C01_008M','S2503_C01_009E','S2503_C01_009M',
+           'S2503_C01_010E','S2503_C01_010M','S2503_C01_011E','S2503_C01_011M',
+           'S2503_C01_012E','S2503_C01_012M']].reset_index(drop=True)
+    rs.columns=['CT','INC01','INC01M','INC02','INC02M','INC03','INC03M','INC04','INC04M',
                 'INC05','INC05M','INC06','INC06M','INC07','INC07M','INC08','INC08M','INC09','INC09M',
                 'INC10','INC10M','INC11','INC11M']
     df+=[rs]
 df=pd.concat(df,axis=0,ignore_index=True)
-df.to_csv(path+'POP/hhinc.csv',index=False)
+df=pd.merge(df,hhocc,how='inner',on='CT')
+df=df[['CT','TT','TTM','VAC','VACM','INC01','INC01M','INC02','INC02M','INC03','INC03M','INC04','INC04M',
+       'INC05','INC05M','INC06','INC06M','INC07','INC07M','INC08','INC08M','INC09','INC09M',
+       'INC10','INC10M','INC11','INC11M']].reset_index(drop=True)
+df.to_csv(path+'POP/ACS/hhinc.csv',index=False)
 
 
 
 # Household Tenure
+hhocc=pd.read_csv(path+'POP/ACS/hhocc.csv',dtype=str)
 df=[]
 for i in bpm:
     rs=requests.get('https://api.census.gov/data/2019/acs/acs5/?get=NAME,group(B25003)&for=tract:*&in=state:'+i[:2]+' county:'+i[2:]+'&key='+apikey).json()
@@ -102,16 +131,18 @@ for i in bpm:
     rs.columns=rs.loc[0]
     rs=rs.loc[1:].reset_index(drop=True)
     rs['geoid']=[x[9:] for x in rs['GEO_ID']]
-    rs=rs[['geoid','B25003_001E','B25003_001M','B25003_002E','B25003_002M',
-           'B25003_003E','B25003_003M']].reset_index(drop=True)
-    rs.columns=['CT','TT','TTM','OWNER','OWNERM','RENTER','RENTERM']
+    rs=rs[['geoid','B25003_002E','B25003_002M','B25003_003E','B25003_003M']].reset_index(drop=True)
+    rs.columns=['CT','OWNER','OWNERM','RENTER','RENTERM']
     df+=[rs]
 df=pd.concat(df,axis=0,ignore_index=True)
-df.to_csv(path+'POP/hhten.csv',index=False)
+df=pd.merge(df,hhocc,how='inner',on='CT')
+df=df[['CT','TT','TTM','VAC','VACM','OWNER','OWNERM','RENTER','RENTERM']].reset_index(drop=True)
+df.to_csv(path+'POP/ACS/hhten.csv',index=False)
 
 
 
 # Household Structure
+hhocc=pd.read_csv(path+'POP/ACS/hhocc.csv',dtype=str)
 df=[]
 for i in bpm:
     rs=requests.get('https://api.census.gov/data/2019/acs/acs5/subject?get=NAME,group(S2504)&for=tract:*&in=state:'+i[:2]+' county:'+i[2:]+'&key='+apikey).json()
@@ -119,15 +150,18 @@ for i in bpm:
     rs.columns=rs.loc[0]
     rs=rs.loc[1:].reset_index(drop=True)
     rs['geoid']=[x[9:] for x in rs['GEO_ID']]
-    rs=rs[['geoid','S2504_C01_001E','S2504_C01_001M','S2504_C01_002E','S2504_C01_002M',
-           'S2504_C01_003E','S2504_C01_003M','S2504_C01_004E','S2504_C01_004M',
-           'S2504_C01_005E','S2504_C01_005M','S2504_C01_006E','S2504_C01_006M',
-           'S2504_C01_007E','S2504_C01_007M','S2504_C01_008E','S2504_C01_008M']].reset_index(drop=True)
-    rs.columns=['CT','TT','TTM','STR1D','STR1DM','STR1A','STR1AM','STR2','STR2M','STR34','STR34M',
+    rs=rs[['geoid','S2504_C01_002E','S2504_C01_002M','S2504_C01_003E','S2504_C01_003M',
+           'S2504_C01_004E','S2504_C01_004M','S2504_C01_005E','S2504_C01_005M',
+           'S2504_C01_006E','S2504_C01_006M','S2504_C01_007E','S2504_C01_007M',
+           'S2504_C01_008E','S2504_C01_008M']].reset_index(drop=True)
+    rs.columns=['CT','STR1D','STR1DM','STR1A','STR1AM','STR2','STR2M','STR34','STR34M',
                 'STR59','STR59M','STR10','STR10M','STRO','STROM']
     df+=[rs]
 df=pd.concat(df,axis=0,ignore_index=True)
-df.to_csv(path+'POP/hhstr.csv',index=False)
+df=pd.merge(df,hhocc,how='inner',on='CT')
+df=df[['CT','TT','TTM','VAC','VACM','STR1D','STR1DM','STR1A','STR1AM','STR2','STR2M','STR34','STR34M',
+       'STR59','STR59M','STR10','STR10M','STRO','STROM']].reset_index(drop=True)
+df.to_csv(path+'POP/ACS/hhstr.csv',index=False)
 
 
 
@@ -149,7 +183,7 @@ for i in bpm:
                 'B70','B70M','B60','B60M','B50','B50M','B40','B40M','B39','B39M']
     df+=[rs]
 df=pd.concat(df,axis=0,ignore_index=True)
-df.to_csv(path+'POP/hhblt.csv',index=False)
+df.to_csv(path+'POP/ACS/hhblt.csv',index=False)
 
 
 
@@ -169,11 +203,12 @@ for i in bpm:
                 'BED4','BED4M','BED5','BED5M']
     df+=[rs]
 df=pd.concat(df,axis=0,ignore_index=True)
-df.to_csv(path+'POP/hhbed.csv',index=False)
+df.to_csv(path+'POP/ACS/hhbed.csv',index=False)
 
 
 
 # Household Vehicles
+hhocc=pd.read_csv(path+'POP/ACS/hhocc.csv',dtype=str)
 df=[]
 for i in bpm:
     rs=requests.get('https://api.census.gov/data/2019/acs/acs5/?get=NAME,group(B08203)&for=tract:*&in=state:'+i[:2]+' county:'+i[2:]+'&key='+apikey).json()
@@ -181,14 +216,16 @@ for i in bpm:
     rs.columns=rs.loc[0]
     rs=rs.loc[1:].reset_index(drop=True)
     rs['geoid']=[x[9:] for x in rs['GEO_ID']]
-    rs=rs[['geoid','B08203_001E','B08203_001M','B08203_002E','B08203_002M',
-           'B08203_003E','B08203_003M','B08203_004E','B08203_004M',
-           'B08203_005E','B08203_005M','B08203_006E','B08203_006M']].reset_index(drop=True)
-    rs.columns=['CT','TT','TTM','VEH0','VEH0M','VEH1','VEH1M','VEH2','VEH2M','VEH3','VEH3M',
-                'VEH4','VEH4M']
+    rs=rs[['geoid','B08203_002E','B08203_002M','B08203_003E','B08203_003M',
+           'B08203_004E','B08203_004M','B08203_005E','B08203_005M',
+           'B08203_006E','B08203_006M']].reset_index(drop=True)
+    rs.columns=['CT','VEH0','VEH0M','VEH1','VEH1M','VEH2','VEH2M','VEH3','VEH3M','VEH4','VEH4M']
     df+=[rs]
 df=pd.concat(df,axis=0,ignore_index=True)
-df.to_csv(path+'POP/hhveh.csv',index=False)
+df=pd.merge(df,hhocc,how='inner',on='CT')
+df=df[['CT','TT','TTM','VAC','VACM','VEH0','VEH0M','VEH1','VEH1M','VEH2','VEH2M','VEH3','VEH3M',
+       'VEH4','VEH4M']].reset_index(drop=True)
+df.to_csv(path+'POP/ACS/hhveh.csv',index=False)
 
 
 
@@ -221,7 +258,7 @@ for i in bpm:
     rs.columns=['CT','GQTT','GQTTM']
     df+=[rs]
 df=pd.concat(df,axis=0,ignore_index=True)
-df.to_csv(path+'POP/gqtt.csv',index=False)
+df.to_csv(path+'POP/ACS/gqtt.csv',index=False)
 
 
 
@@ -237,7 +274,7 @@ for i in bpm:
     rs.columns=['CT','TT','TTM']
     df+=[rs]
 df=pd.concat(df,axis=0,ignore_index=True)
-df.to_csv(path+'POP/pptt.csv',index=False)
+df.to_csv(path+'POP/ACS/pptt.csv',index=False)
 
 
 
@@ -265,7 +302,7 @@ for i in bpm:
                 'AGE15','AGE15M','AGE16','AGE16M','AGE17','AGE17M','AGE18','AGE18M']
     df+=[rs]
 df=pd.concat(df,axis=0,ignore_index=True)
-df.to_csv(path+'POP/ppage.csv',index=False)
+df.to_csv(path+'POP/ACS/ppage.csv',index=False)
 
 
 
@@ -292,7 +329,7 @@ for i in bpm:
                 'MC','MCM','BC','BCM','WK','WKM','OT','OTM','HM','HMM']
     df+=[rs]
 df=pd.concat(df,axis=0,ignore_index=True)
-df.to_csv(path+'POP/ppmode.csv',index=False)
+df.to_csv(path+'POP/ACS/ppmode.csv',index=False)
 
 
 
@@ -312,7 +349,7 @@ for i in bpm:
                 'GS','GSM']
     df+=[rs]
 df=pd.concat(df,axis=0,ignore_index=True)
-df.to_csv(path+'POP/ppsch.csv',index=False)
+df.to_csv(path+'POP/ACS/ppsch.csv',index=False)
 
 
 
@@ -331,7 +368,7 @@ for i in bpm:
     rs.columns=['CT','TT','TTM','MALE','MALEM','FEMALE','FEMALEM']
     df+=[rs]
 df=pd.concat(df,axis=0,ignore_index=True)
-df.to_csv(path+'POP/ppsex.csv',index=False)
+df.to_csv(path+'POP/ACS/ppsex.csv',index=False)
 
 
 
