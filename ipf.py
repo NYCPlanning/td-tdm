@@ -248,5 +248,770 @@ for i in puma:
 
 
 
+# New Method (Assign Housholds to CT)
+bpm=['36005','36047','36061','36081','36085','36059','36103','36119','36087','36079','36071','36027',
+     '09001','09009','34017','34003','34031','34013','34039','34027','34035','34023','34025','34029',
+     '34037','34041','34019','34021']
+geoxwalk=pd.read_csv(path+'POP/GEOIDCROSSWALK.csv',dtype=str)
+
+
+
+pumshh=[]
+for i in ['09','34','36']:
+    pumshh+=[pd.read_csv(path+'POP/psam_h'+i+'.csv',dtype=str)]
+pumshh=pd.concat(pumshh,axis=0,ignore_index=True)
+pumshh['HHID']=pumshh['SERIALNO'].copy()
+pumshh['PUMA']=pumshh['ST']+pumshh['PUMA']
+pumshh=pd.merge(pumshh,geoxwalk[['PUMA2010','StateCounty']].drop_duplicates(keep='first'),how='left',left_on='PUMA',right_on='PUMA2010')
+pumshh=pumshh[np.isin(pumshh['StateCounty'],bpm)].reset_index(drop=True)
+pumshhgq=pumshh.loc[pumshh['TYPE']!='1',['HHID','PUMA']].reset_index(drop=True)
+pumshhgq.to_csv(path+'POP/pumshhgq.csv',index=False)
+pumshh=pumshh[pumshh['TYPE']=='1'].reset_index(drop=True)
+pumshh=pumshh[pumshh['NP']!='0'].reset_index(drop=True)
+pumshh=pumshh[pumshh['WGTP']!='0'].reset_index(drop=True)
+pumshh['HHSIZE']=np.where(pumshh['NP']=='1','SIZE1',
+                 np.where(pumshh['NP']=='2','SIZE2',
+                 np.where(pumshh['NP']=='3','SIZE3','SIZE4')))
+pumshh['HHTYPE']=np.where(pumshh['HHT2']=='02','TYPE1',
+                 np.where(pumshh['HHT2']=='04','TYPE1',
+                 np.where(pumshh['HHT2']=='01','TYPE2',
+                 np.where(pumshh['HHT2']=='03','TYPE2',
+                 np.where(pumshh['HHT2']=='05','TYPE3',
+                 np.where(pumshh['HHT2']=='09','TYPE3',
+                 np.where(pumshh['HHT2']=='06','TYPE4',
+                 np.where(pumshh['HHT2']=='10','TYPE4','TYPE5'))))))))
+pumshh['HHINC']=pd.to_numeric(pumshh['HINCP'])
+pumshh['HHINC']=np.where(pumshh['HHINC']<5000,'INC01',
+                np.where(pumshh['HHINC']<10000,'INC02',
+                np.where(pumshh['HHINC']<15000,'INC03',
+                np.where(pumshh['HHINC']<20000,'INC04',
+                np.where(pumshh['HHINC']<25000,'INC05',
+                np.where(pumshh['HHINC']<35000,'INC06',
+                np.where(pumshh['HHINC']<50000,'INC07',
+                np.where(pumshh['HHINC']<75000,'INC08',
+                np.where(pumshh['HHINC']<100000,'INC09',
+                np.where(pumshh['HHINC']<150000,'INC10','INC11'))))))))))
+pumshh['HHTEN']=np.where(pumshh['TEN']=='3','RENTER','OWNER')
+pumshh['HHSTR']=np.where(pumshh['BLD']=='02','STR1D',
+                np.where(pumshh['BLD']=='03','STR1A',
+                np.where(pumshh['BLD']=='04','STR2',
+                np.where(pumshh['BLD']=='05','STR34',
+                np.where(pumshh['BLD']=='06','STR59',
+                np.where(pumshh['BLD']=='07','STR10',
+                np.where(pumshh['BLD']=='08','STR10',
+                np.where(pumshh['BLD']=='09','STR10','STRO'))))))))
+pumshh['HHBLT']=np.where(pumshh['YBL']=='01','B39',
+                np.where(pumshh['YBL']=='02','B40',
+                np.where(pumshh['YBL']=='03','B50',
+                np.where(pumshh['YBL']=='04','B60',
+                np.where(pumshh['YBL']=='05','B70',
+                np.where(pumshh['YBL']=='06','B80',
+                np.where(pumshh['YBL']=='07','B90',
+                np.where(pumshh['YBL']=='08','B00',
+                np.where(pumshh['YBL']=='09','B00',
+                np.where(pumshh['YBL']=='10','B00',
+                np.where(pumshh['YBL']=='11','B00',
+                np.where(pumshh['YBL']=='12','B00',
+                np.where(pumshh['YBL']=='13','B00',
+                np.where(pumshh['YBL']=='14','B10',
+                np.where(pumshh['YBL']=='15','B10',
+                np.where(pumshh['YBL']=='16','B10',
+                np.where(pumshh['YBL']=='17','B10','B14')))))))))))))))))
+pumshh['HHBED']=np.where(pumshh['BDSP']=='0','BED0',
+                np.where(pumshh['BDSP']=='1','BED1',
+                np.where(pumshh['BDSP']=='2','BED2',
+                np.where(pumshh['BDSP']=='3','BED3',
+                np.where(pumshh['BDSP']=='4','BED4','BED5')))))
+pumshh['HHVEH']=np.where(pumshh['VEH']=='0','VEH0',
+                np.where(pumshh['VEH']=='1','VEH1',
+                np.where(pumshh['VEH']=='2','VEH2',
+                np.where(pumshh['VEH']=='3','VEH3','VEH4'))))
+pumshh=pumshh[['HHID','PUMA','WGTP','HHSIZE','HHTYPE','HHINC','HHTEN','HHSTR','HHBLT','HHBED','HHVEH']].reset_index(drop=True)
+pumshh.to_csv(path+'POP/pumshh.csv',index=False)
+
+
+
+pumspp=[]
+for i in ['09','34','36']:
+    pumspp+=[pd.read_csv(path+'POP/psam_p'+i+'.csv',dtype=str)]
+pumspp=pd.concat(pumspp,axis=0,ignore_index=True)
+pumspp['PPID']=pumspp['SERIALNO']+'|'+pumspp['SPORDER']
+pumspp['HHID']=pumspp['SERIALNO'].copy()
+pumspp['PUMA']=pumspp['ST']+pumspp['PUMA']
+pumspp=pd.merge(pumspp,geoxwalk[['PUMA2010','StateCounty']].drop_duplicates(keep='first'),how='left',left_on='PUMA',right_on='PUMA2010')
+pumspp=pumspp[np.isin(pumspp['StateCounty'],bpm)].reset_index(drop=True)
+pumsppgq=pumspp[np.isin(pumspp['RELSHIPP'],['37','38'])].reset_index(drop=True)
+pumsppgq=pumsppgq[['PPID','HHID','PUMA','PWGTP']].reset_index(drop=True)
+pumsppgq.to_csv(path+'POP/pumsppgq.csv',index=False)
+pumspp=pumspp[~np.isin(pumspp['RELSHIPP'],['37','38'])].reset_index(drop=True)
+pumspp=pumspp[pumspp['PWGTP']!='0'].reset_index(drop=True)
+pumspp['PPSEX']=np.where(pumspp['SEX']=='1','MALE','FEMALE')
+
+pumspp['PPAGE']=pd.to_numeric(pumspp['AGEP'])
+pumspp['PPAGE']=np.where(pumspp['PPAGE']<=5,'AGE01',
+                np.where(pumspp['PPAGE']<=9,'AGE02',
+                np.where(pumspp['PPAGE']<=14,'AGE03',
+                np.where(pumspp['PPAGE']<=19,'AGE04',
+                np.where(pumspp['PPAGE']<=24,'AGE05',
+                np.where(pumspp['PPAGE']<=29,'AGE06',
+                np.where(pumspp['PPAGE']<=34,'AGE07',
+                np.where(pumspp['PPAGE']<=39,'AGE08',
+                np.where(pumspp['PPAGE']<=44,'AGE09',
+                np.where(pumspp['PPAGE']<=49,'AGE10',
+                np.where(pumspp['PPAGE']<=54,'AGE11',
+                np.where(pumspp['PPAGE']<=59,'AGE12',
+                np.where(pumspp['PPAGE']<=64,'AGE13',
+                np.where(pumspp['PPAGE']<=69,'AGE14',
+                np.where(pumspp['PPAGE']<=74,'AGE15',
+                np.where(pumspp['PPAGE']<=79,'AGE16',
+                np.where(pumspp['PPAGE']<=84,'AGE17','AGE18')))))))))))))))))
+pumspp['PPSCH']=np.where(pumspp['SCHG']=='01','PR',
+                np.where(pumspp['SCHG']=='02','KG',
+                np.where(pumspp['SCHG']=='03','G14',
+                np.where(pumspp['SCHG']=='04','G14',
+                np.where(pumspp['SCHG']=='05','G14',
+                np.where(pumspp['SCHG']=='06','G14',
+                np.where(pumspp['SCHG']=='07','G59',
+                np.where(pumspp['SCHG']=='08','G59',
+                np.where(pumspp['SCHG']=='09','G59',
+                np.where(pumspp['SCHG']=='10','G59',
+                np.where(pumspp['SCHG']=='11','HS',
+                np.where(pumspp['SCHG']=='12','HS',
+                np.where(pumspp['SCHG']=='13','HS',
+                np.where(pumspp['SCHG']=='14','HS',
+                np.where(pumspp['SCHG']=='15','CL',
+                np.where(pumspp['SCHG']=='16','GS','NS'))))))))))))))))
+pumspp['PPMODE']=np.where((pumspp['JWTRNS']=='01')&(pumspp['JWRIP']=='1'),'DA',
+                 np.where((pumspp['JWTRNS']=='01')&(pumspp['JWRIP']=='2'),'CP2',
+                 np.where((pumspp['JWTRNS']=='01')&(pumspp['JWRIP']=='3'),'CP3',
+                 np.where((pumspp['JWTRNS']=='01')&(pumspp['JWRIP']=='4'),'CP4',
+                 np.where((pumspp['JWTRNS']=='01')&(pumspp['JWRIP']=='5'),'CP56',
+                 np.where((pumspp['JWTRNS']=='01')&(pumspp['JWRIP']=='6'),'CP56',
+                 np.where((pumspp['JWTRNS']=='01')&(pumspp['JWRIP']=='7'),'CP7',
+                 np.where((pumspp['JWTRNS']=='01')&(pumspp['JWRIP']=='8'),'CP7',
+                 np.where((pumspp['JWTRNS']=='01')&(pumspp['JWRIP']=='9'),'CP7',
+                 np.where((pumspp['JWTRNS']=='01')&(pumspp['JWRIP']=='10'),'CP7',
+                 np.where(pumspp['JWTRNS']=='02','BS',
+                 np.where(pumspp['JWTRNS']=='03','SW',
+                 np.where(pumspp['JWTRNS']=='04','CR',
+                 np.where(pumspp['JWTRNS']=='05','LR',
+                 np.where(pumspp['JWTRNS']=='06','FB',
+                 np.where(pumspp['JWTRNS']=='07','TC',
+                 np.where(pumspp['JWTRNS']=='08','MC',
+                 np.where(pumspp['JWTRNS']=='09','BC',
+                 np.where(pumspp['JWTRNS']=='10','WK',
+                 np.where(pumspp['JWTRNS']=='11','HM',
+                 np.where(pumspp['JWTRNS']=='12','OT','NK')))))))))))))))))))))
+pumspp=pumspp[['PPID','HHID','PUMA','PWGTP','PPSEX','PPAGE','PPSCH','PPMODE']].reset_index(drop=True)
+pumspp.to_csv(path+'POP/pumspp.csv',index=False)
+
+
+
+
+
+
+
+#class of worker:cow
+#Travel time to work:JWMNP
+
+#sex
+
+#education
+#employment status
+#industry
+#race
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+# IPF
+i='3603805'
+ct=geoxwalk.loc[geoxwalk['PUMA2010']==i,'CensusTract2010'].unique()
+
+# Households
+pumshh=pd.read_csv(path+'POP/pumshh.csv',dtype=str)
+pumshh=pumshh[pumshh['PUMA']==i].reset_index(drop=True)
+
+tphh=pd.DataFrame(ipfn.ipfn.product(pumshh['HHID'].unique(),ct),columns=['HHID','CT'])
+tphh=pd.merge(tphh,pumshh[['HHID','HHINC']],how='left',on='HHID')
+tphh['TOTAL']=1
+
+idwt=pumshh[['HHID','WGTP']].reset_index(drop=True)
+idwt['WGTP']=pd.to_numeric(idwt['WGTP'])
+idwt=idwt.set_index(['HHID'])
+idwt=idwt.iloc[:,0]
+
+# cthhsize=pd.read_csv(path+'POP/hhsize.csv',dtype=float,converters={'CT':str})
+# cthhsize=cthhsize.loc[np.isin(cthhsize['CT'],ct),['CT','SIZE1','SIZE2','SIZE3','SIZE4']].reset_index(drop=True)
+# cthhsize=cthhsize.melt(id_vars=['CT'],value_vars=['SIZE1','SIZE2','SIZE3','SIZE4'],var_name='HHSIZE',value_name='TOTAL')
+# cthhsize=cthhsize.set_index(['CT','HHSIZE'])
+# cthhsize=cthhsize.iloc[:,0]
+
+cthhinc=pd.read_csv(path+'POP/hhinc.csv',dtype=float,converters={'CT':str})
+cthhinc=cthhinc.loc[np.isin(cthhinc['CT'],ct),['CT','INC01','INC02','INC03','INC04','INC05','INC06',
+                                               'INC07','INC08','INC09','INC10','INC11']].reset_index(drop=True)
+cthhinc=cthhinc.melt(id_vars=['CT'],value_vars=['INC01','INC02','INC03','INC04','INC05','INC06',
+                                                'INC07','INC08','INC09','INC10','INC11'],var_name='HHINC',value_name='TOTAL')
+cthhinc=cthhinc.set_index(['CT','HHINC'])
+cthhinc=cthhinc.iloc[:,0]
+
+aggregates=[idwt,cthhinc]
+dimensions=[['HHID'],['CT','HHINC']]
+
+tphh=ipfn.ipfn.ipfn(tphh,aggregates,dimensions,weight_col='TOTAL',max_iteration=1000000).iteration()
+tphh['TOTAL']=[round(x) for x in tphh['TOTAL']]
+
+
+
+# Check HHID Weight Sum
+k=pd.merge(tp.groupby(['HHID'],as_index=False).agg({'TOTAL':'sum'}),idwt,how='inner',on='HHID')
+p=px.scatter(k,x='TOTAL',y='WGTP')
+p.show()
+
+
+
+# Check HHTT
+k=pd.read_csv(path+'POP/hhtt.csv',dtype=float,converters={'CT':str})
+k=k[np.isin(k['CT'],ct)].reset_index(drop=True)
+k.columns=['CT','TOTAL','MOE']
+k=pd.merge(tphh.groupby(['CT'],as_index=False).agg({'TOTAL':'sum'}),k,how='inner',on=['CT'])
+k=k.sort_values('TOTAL_y').reset_index(drop=True)
+p=px.scatter(k,x='TOTAL_x',y='TOTAL_y')
+p.show()
+fig=go.Figure()
+fig=fig.add_trace(go.Scattergl(name='ACS',
+                               x=list(k.index)+list(k.index[::-1]),
+                               y=list(k['TOTAL_y']+k['MOE'])+list((k['TOTAL_y']-k['MOE'])[::-1]),
+                               fill='toself',
+                               fillcolor='rgba(0,0,255,0.5)',
+                               line=dict(color='rgba(255,255,255,0)')))
+fig=fig.add_trace(go.Scattergl(name='MODEL',
+                               x=k.index,
+                               y=k['TOTAL_x'],
+                               mode='lines'))
+fig.show()
+len(k[(k['TOTAL_x']<=k['TOTAL_y']+k['MOE'])&(k['TOTAL_x']>=k['TOTAL_y']-k['MOE'])])/len(k)
+
+
+
+# Check HHSIZE
+tptest=pd.merge(tphh,pumshh[['HHID','HHSIZE']],how='inner',on='HHID')
+k=pd.read_csv(path+'POP/hhsize.csv',dtype=float,converters={'CT':str})
+k=k[np.isin(k['CT'],ct)].reset_index(drop=True)
+k=k.melt(id_vars=['CT'],value_vars=['SIZE1','SIZE1M','SIZE2','SIZE2M','SIZE3','SIZE3M','SIZE4','SIZE4M'],var_name='HHSIZE',value_name='TOTAL')
+k=pd.merge(k[np.isin(k['HHSIZE'],['SIZE1','SIZE2','SIZE3','SIZE4'])],
+           k[np.isin(k['HHSIZE'],['SIZE1M','SIZE2M','SIZE3M','SIZE4M'])],how='inner',on='CT')
+k=k[(k['HHSIZE_x']+'M')==k['HHSIZE_y']].reset_index(drop=True)
+k=k[['CT','HHSIZE_x','TOTAL_x','TOTAL_y']].reset_index(drop=True)
+k.columns=['CT','HHSIZE','TOTAL','MOE']
+k=pd.merge(tptest.groupby(['CT','HHSIZE'],as_index=False).agg({'TOTAL':'sum'}),k,how='inner',on=['CT','HHSIZE'])
+k=k.sort_values('TOTAL_y').reset_index(drop=True)
+p=px.scatter(k,x='TOTAL_x',y='TOTAL_y')
+p.show()
+fig=go.Figure()
+fig=fig.add_trace(go.Scattergl(name='ACS',
+                               x=list(k.index)+list(k.index[::-1]),
+                               y=list(k['TOTAL_y']+k['MOE'])+list((k['TOTAL_y']-k['MOE'])[::-1]),
+                               fill='toself',
+                               fillcolor='rgba(0,0,255,0.5)',
+                               line=dict(color='rgba(255,255,255,0)')))
+fig=fig.add_trace(go.Scattergl(name='MODEL',
+                               x=k.index,
+                               y=k['TOTAL_x'],
+                               mode='lines'))
+fig.show()
+len(k[(k['TOTAL_x']<=k['TOTAL_y']+k['MOE'])&(k['TOTAL_x']>=k['TOTAL_y']-k['MOE'])])/len(k)
+
+
+
+# Check HHTYPE
+tptest=pd.merge(tphh,pumshh[['HHID','HHTYPE']],how='inner',on='HHID')
+k=pd.read_csv(path+'POP/hhtype.csv',dtype=float,converters={'CT':str})
+k=k[np.isin(k['CT'],ct)].reset_index(drop=True)
+k['TYPE1']=k['MC']-k['MCC']+k['CC']-k['CCC']
+k['TYPE1M']=np.sqrt(k['MCM']**2+k['MCCM']**2+k['CCM']**2+k['CCCM']**2)
+k['TYPE2']=k['MCC']+k['CCC']
+k['TYPE2M']=np.sqrt(k['MCCM']**2+k['CCCM']**2)
+k['TYPE3']=k['MHA']+k['FHA']
+k['TYPE3M']=np.sqrt(k['MHAM']**2+k['FHAM']**2)
+k['TYPE4']=k['MHC']+k['FHC']
+k['TYPE4M']=np.sqrt(k['MHCM']**2+k['FHCM']**2)
+k['TYPE5']=k['MH']-k['MHC']-k['MHA']+k['FH']-k['FHC']-k['FHA']
+k['TYPE5M']=np.sqrt(k['MHM']**2+k['MHCM']**2+k['MHAM']**2+k['FHM']**2+k['FHCM']**2+k['FHAM']**2)
+k=k.melt(id_vars=['CT'],value_vars=['TYPE1','TYPE1M','TYPE1','TYPE2M','TYPE3','TYPE3M','TYPE4','TYPE4M',
+                                    'TYPE5','TYPE5M'],var_name='HHTYPE',value_name='TOTAL')
+k=pd.merge(k[np.isin(k['HHTYPE'],['TYPE1','TYPE2','TYPE3','TYPE4','TYPE5'])],
+           k[np.isin(k['HHTYPE'],['TYPE1M','TYPE2M','TYPE3M','TYPE4M','TYPE5M'])],how='inner',on='CT')
+k=k[(k['HHTYPE_x']+'M')==k['HHTYPE_y']].reset_index(drop=True)
+k=k[['CT','HHTYPE_x','TOTAL_x','TOTAL_y']].reset_index(drop=True)
+k.columns=['CT','HHTYPE','TOTAL','MOE']
+k=pd.merge(tptest.groupby(['CT','HHTYPE'],as_index=False).agg({'TOTAL':'sum'}),k,how='inner',on=['CT','HHTYPE'])
+k=k.sort_values('TOTAL_y').reset_index(drop=True)
+p=px.scatter(k,x='TOTAL_x',y='TOTAL_y')
+p.show()
+fig=go.Figure()
+fig=fig.add_trace(go.Scattergl(name='ACS',
+                               x=list(k.index)+list(k.index[::-1]),
+                               y=list(k['TOTAL_y']+k['MOE'])+list((k['TOTAL_y']-k['MOE'])[::-1]),
+                               fill='toself',
+                               fillcolor='rgba(0,0,255,0.5)',
+                               line=dict(color='rgba(255,255,255,0)')))
+fig=fig.add_trace(go.Scattergl(name='MODEL',
+                               x=k.index,
+                               y=k['TOTAL_x'],
+                               mode='lines'))
+fig.show()
+len(k[(k['TOTAL_x']<=k['TOTAL_y']+k['MOE'])&(k['TOTAL_x']>=k['TOTAL_y']-k['MOE'])])/len(k)
+
+
+
+# Check HHINC
+# tptest=pd.merge(tp,pumshh[['HHID','HHINC']],how='inner',on='HHID')
+k=pd.read_csv(path+'POP/hhinc.csv',dtype=float,converters={'CT':str})
+k=k[np.isin(k['CT'],ct)].reset_index(drop=True)
+k=k.melt(id_vars=['CT'],value_vars=['INC01','INC01M','INC02','INC02M','INC03','INC03M','INC04','INC04M',
+                                    'INC05','INC05M','INC06','INC06M','INC07','INC07M','INC08','INC08M',
+                                    'INC09','INC09M','INC10','INC10M','INC11','INC11M'],var_name='HHINC',value_name='TOTAL')
+k=pd.merge(k[np.isin(k['HHINC'],['INC01','INC02','INC03','INC04','INC05','INC06','INC07','INC08','INC09','INC10','INC11'])],
+           k[np.isin(k['HHINC'],['INC01M','INC02M','INC03M','INC04M','INC05M','INC06M','INC07M','INC08M','INC09M','INC10M','INC11M'])],how='inner',on='CT')
+k=k[(k['HHINC_x']+'M')==k['HHINC_y']].reset_index(drop=True)
+k=k[['CT','HHINC_x','TOTAL_x','TOTAL_y']].reset_index(drop=True)
+k.columns=['CT','HHINC','TOTAL','MOE']
+k=pd.merge(tphh.groupby(['CT','HHINC'],as_index=False).agg({'TOTAL':'sum'}),k,how='inner',on=['CT','HHINC'])
+k=k.sort_values('TOTAL_y').reset_index(drop=True)
+p=px.scatter(k,x='TOTAL_x',y='TOTAL_y')
+p.show()
+fig=go.Figure()
+fig=fig.add_trace(go.Scattergl(name='ACS',
+                               x=list(k.index)+list(k.index[::-1]),
+                               y=list(k['TOTAL_y']+k['MOE'])+list((k['TOTAL_y']-k['MOE'])[::-1]),
+                               fill='toself',
+                               fillcolor='rgba(0,0,255,0.5)',
+                               line=dict(color='rgba(255,255,255,0)')))
+fig=fig.add_trace(go.Scattergl(name='MODEL',
+                               x=k.index,
+                               y=k['TOTAL_x'],
+                               mode='lines'))
+fig.show()
+len(k[(k['TOTAL_x']<=k['TOTAL_y']+k['MOE'])&(k['TOTAL_x']>=k['TOTAL_y']-k['MOE'])])/len(k)
+
+
+
+# Check HHTEN
+tptest=pd.merge(tphh,pumshh[['HHID','HHTEN']],how='inner',on='HHID')
+k=pd.read_csv(path+'POP/hhten.csv',dtype=float,converters={'CT':str})
+k=k[np.isin(k['CT'],ct)].reset_index(drop=True)
+k=k.melt(id_vars=['CT'],value_vars=['OWNER','OWNERM','RENTER','RENTERM'],var_name='HHTEN',value_name='TOTAL')
+k=pd.merge(k[np.isin(k['HHTEN'],['OWNER','RENTER'])],
+           k[np.isin(k['HHTEN'],['OWNERM','RENTERM'])],how='inner',on='CT')
+k=k[(k['HHTEN_x']+'M')==k['HHTEN_y']].reset_index(drop=True)
+k=k[['CT','HHTEN_x','TOTAL_x','TOTAL_y']].reset_index(drop=True)
+k.columns=['CT','HHTEN','TOTAL','MOE']
+k=pd.merge(tptest.groupby(['CT','HHTEN'],as_index=False).agg({'TOTAL':'sum'}),k,how='inner',on=['CT','HHTEN'])
+k=k.sort_values('TOTAL_y').reset_index(drop=True)
+p=px.scatter(k,x='TOTAL_x',y='TOTAL_y')
+p.show()
+fig=go.Figure()
+fig=fig.add_trace(go.Scattergl(name='ACS',
+                               x=list(k.index)+list(k.index[::-1]),
+                               y=list(k['TOTAL_y']+k['MOE'])+list((k['TOTAL_y']-k['MOE'])[::-1]),
+                               fill='toself',
+                               fillcolor='rgba(0,0,255,0.5)',
+                               line=dict(color='rgba(255,255,255,0)')))
+fig=fig.add_trace(go.Scattergl(name='MODEL',
+                               x=k.index,
+                               y=k['TOTAL_x'],
+                               mode='lines'))
+fig.show()
+len(k[(k['TOTAL_x']<=k['TOTAL_y']+k['MOE'])&(k['TOTAL_x']>=k['TOTAL_y']-k['MOE'])])/len(k)
+
+
+
+# Check HHSTR
+tptest=pd.merge(tphh,pumshh[['HHID','HHSTR']],how='inner',on='HHID')
+k=pd.read_csv(path+'POP/hhstr.csv',dtype=float,converters={'CT':str})
+k=k[np.isin(k['CT'],ct)].reset_index(drop=True)
+k=k.melt(id_vars=['CT'],value_vars=['STR1D','STR1DM','STR1A','STR1AM','STR2','STR2M','STR34','STR34M',
+                                    'STR59','STR59M','STR10','STR10M','STRO','STROM'],var_name='HHSTR',value_name='TOTAL')
+k=pd.merge(k[np.isin(k['HHSTR'],['STR1D','STR1A','STR2','STR34','STR59','STR10','STRO'])],
+           k[np.isin(k['HHSTR'],['STR1DM','STR1AM','STR2M','STR34M','STR59M','STR10M','STROM'])],how='inner',on='CT')
+k=k[(k['HHSTR_x']+'M')==k['HHSTR_y']].reset_index(drop=True)
+k=k[['CT','HHSTR_x','TOTAL_x','TOTAL_y']].reset_index(drop=True)
+k.columns=['CT','HHSTR','TOTAL','MOE']
+k=pd.merge(tptest.groupby(['CT','HHSTR'],as_index=False).agg({'TOTAL':'sum'}),k,how='inner',on=['CT','HHSTR'])
+k=k.sort_values('TOTAL_y').reset_index(drop=True)
+p=px.scatter(k,x='TOTAL_x',y='TOTAL_y')
+p.show()
+fig=go.Figure()
+fig=fig.add_trace(go.Scattergl(name='ACS',
+                               x=list(k.index)+list(k.index[::-1]),
+                               y=list(k['TOTAL_y']+k['MOE'])+list((k['TOTAL_y']-k['MOE'])[::-1]),
+                               fill='toself',
+                               fillcolor='rgba(0,0,255,0.5)',
+                               line=dict(color='rgba(255,255,255,0)')))
+fig=fig.add_trace(go.Scattergl(name='MODEL',
+                               x=k.index,
+                               y=k['TOTAL_x'],
+                               mode='lines'))
+fig.show()
+len(k[(k['TOTAL_x']<=k['TOTAL_y']+k['MOE'])&(k['TOTAL_x']>=k['TOTAL_y']-k['MOE'])])/len(k)
+
+
+
+# Check HHBLT
+tptest=pd.merge(tphh,pumshh[['HHID','HHBLT']],how='inner',on='HHID')
+k=pd.read_csv(path+'POP/hhblt.csv',dtype=float,converters={'CT':str})
+k=k[np.isin(k['CT'],ct)].reset_index(drop=True)
+k=k.melt(id_vars=['CT'],value_vars=['B14','B14M','B10','B10M','B00','B00M','B90','B90M','B80','B80M',
+                                    'B70','B70M','B60','B60M','B50','B50M','B40','B40M','B39','B39M'],var_name='HHBLT',value_name='TOTAL')
+k=pd.merge(k[np.isin(k['HHBLT'],['B14','B10','B00','B90','B80','B70','B60','B50','B40','B39'])],
+           k[np.isin(k['HHBLT'],['B14M','B10M','B00M','B90M','B80M','B70M','B60M','B50M','B40M','B39M'])],how='inner',on='CT')
+k=k[(k['HHBLT_x']+'M')==k['HHBLT_y']].reset_index(drop=True)
+k=k[['CT','HHBLT_x','TOTAL_x','TOTAL_y']].reset_index(drop=True)
+k.columns=['CT','HHBLT','TOTAL','MOE']
+k=pd.merge(tptest.groupby(['CT','HHBLT'],as_index=False).agg({'TOTAL':'sum'}),k,how='inner',on=['CT','HHBLT'])
+k=k.sort_values('TOTAL_y').reset_index(drop=True)
+p=px.scatter(k,x='TOTAL_x',y='TOTAL_y')
+p.show()
+fig=go.Figure()
+fig=fig.add_trace(go.Scattergl(name='ACS',
+                               x=list(k.index)+list(k.index[::-1]),
+                               y=list(k['TOTAL_y']+k['MOE'])+list((k['TOTAL_y']-k['MOE'])[::-1]),
+                               fill='toself',
+                               fillcolor='rgba(0,0,255,0.5)',
+                               line=dict(color='rgba(255,255,255,0)')))
+fig=fig.add_trace(go.Scattergl(name='MODEL',
+                               x=k.index,
+                               y=k['TOTAL_x'],
+                               mode='lines'))
+fig.show()
+len(k[(k['TOTAL_x']<=k['TOTAL_y']+k['MOE'])&(k['TOTAL_x']>=k['TOTAL_y']-k['MOE'])])/len(k)
+
+
+
+# Check HHBED
+tptest=pd.merge(tphh,pumshh[['HHID','HHBED']],how='inner',on='HHID')
+k=pd.read_csv(path+'POP/hhbed.csv',dtype=float,converters={'CT':str})
+k=k[np.isin(k['CT'],ct)].reset_index(drop=True)
+k=k.melt(id_vars=['CT'],value_vars=['BED0','BED0M','BED1','BED1M','BED2','BED2M','BED3','BED3M',
+                                    'BED4','BED4M','BED5','BED5M'],var_name='HHBED',value_name='TOTAL')
+k=pd.merge(k[np.isin(k['HHBED'],['BED0','BED1','BED2','BED3','BED4','BED5'])],
+           k[np.isin(k['HHBED'],['BED0M','BED1M','BED2M','BED3M','BED4M','BED5M'])],how='inner',on='CT')
+k=k[(k['HHBED_x']+'M')==k['HHBED_y']].reset_index(drop=True)
+k=k[['CT','HHBED_x','TOTAL_x','TOTAL_y']].reset_index(drop=True)
+k.columns=['CT','HHBED','TOTAL','MOE']
+k=pd.merge(tptest.groupby(['CT','HHBED'],as_index=False).agg({'TOTAL':'sum'}),k,how='inner',on=['CT','HHBED'])
+k=k.sort_values('TOTAL_y').reset_index(drop=True)
+p=px.scatter(k,x='TOTAL_x',y='TOTAL_y')
+p.show()
+fig=go.Figure()
+fig=fig.add_trace(go.Scattergl(name='ACS',
+                               x=list(k.index)+list(k.index[::-1]),
+                               y=list(k['TOTAL_y']+k['MOE'])+list((k['TOTAL_y']-k['MOE'])[::-1]),
+                               fill='toself',
+                               fillcolor='rgba(0,0,255,0.5)',
+                               line=dict(color='rgba(255,255,255,0)')))
+fig=fig.add_trace(go.Scattergl(name='MODEL',
+                               x=k.index,
+                               y=k['TOTAL_x'],
+                               mode='lines'))
+fig.show()
+len(k[(k['TOTAL_x']<=k['TOTAL_y']+k['MOE'])&(k['TOTAL_x']>=k['TOTAL_y']-k['MOE'])])/len(k)
+
+
+
+# Check HHVEH
+tptest=pd.merge(tphh,pumshh[['HHID','HHVEH']],how='inner',on='HHID')
+k=pd.read_csv(path+'POP/hhveh.csv',dtype=float,converters={'CT':str})
+k=k[np.isin(k['CT'],ct)].reset_index(drop=True)
+k=k.melt(id_vars=['CT'],value_vars=['VEH0','VEH0M','VEH1','VEH1M','VEH2','VEH2M','VEH3','VEH3M',
+                                    'VEH4','VEH4M'],var_name='HHVEH',value_name='TOTAL')
+k=pd.merge(k[np.isin(k['HHVEH'],['VEH0','VEH1','VEH2','VEH3','VEH4'])],
+           k[np.isin(k['HHVEH'],['VEH0M','VEH1M','VEH2M','VEH3M','VEH4M'])],how='inner',on='CT')
+k=k[(k['HHVEH_x']+'M')==k['HHVEH_y']].reset_index(drop=True)
+k=k[['CT','HHVEH_x','TOTAL_x','TOTAL_y']].reset_index(drop=True)
+k.columns=['CT','HHVEH','TOTAL','MOE']
+k=pd.merge(tptest.groupby(['CT','HHVEH'],as_index=False).agg({'TOTAL':'sum'}),k,how='inner',on=['CT','HHVEH'])
+k=k.sort_values('TOTAL_y').reset_index(drop=True)
+p=px.scatter(k,x='TOTAL_x',y='TOTAL_y')
+p.show()
+fig=go.Figure()
+fig=fig.add_trace(go.Scattergl(name='ACS',
+                               x=list(k.index)+list(k.index[::-1]),
+                               y=list(k['TOTAL_y']+k['MOE'])+list((k['TOTAL_y']-k['MOE'])[::-1]),
+                               fill='toself',
+                               fillcolor='rgba(0,0,255,0.5)',
+                               line=dict(color='rgba(255,255,255,0)')))
+fig=fig.add_trace(go.Scattergl(name='MODEL',
+                               x=k.index,
+                               y=k['TOTAL_x'],
+                               mode='lines'))
+fig.show()
+len(k[(k['TOTAL_x']<=k['TOTAL_y']+k['MOE'])&(k['TOTAL_x']>=k['TOTAL_y']-k['MOE'])])/len(k)
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+# Group Quarter IPF
+pumsppgq=pd.read_csv(path+'POP/pumsppgq.csv',dtype=str)
+pumsppgq=pumsppgq[pumsppgq['PUMA']==i].reset_index(drop=True)
+pumsppgq=pumsppgq.groupby(['HHID'],as_index=False).agg({'PWGTP':'sum'}).reset_index(drop=True)
+
+tpgq=pd.DataFrame(ipfn.ipfn.product(pumsppgq['HHID'].unique(),ct),columns=['HHID','CT'])
+tpgq['TOTAL']=1
+
+idwt=pumsppgq[['HHID','PWGTP']].reset_index(drop=True)
+idwt['PWGTP']=pd.to_numeric(idwt['PWGTP'])
+idwt=idwt.set_index(['HHID'])
+idwt=idwt.iloc[:,0]
+
+gqtt=pd.read_csv(path+'POP/gqtt.csv',dtype=float,converters={'CT':str})
+gqtt=gqtt.loc[np.isin(gqtt['CT'],ct),['CT','GQTT']].reset_index(drop=True)
+gqtt=gqtt.set_index(['CT'])
+gqtt=gqtt.iloc[:,0]
+
+aggregates=[idwt,gqtt]
+dimensions=[['HHID'],['CT']]
+
+tpgq=ipfn.ipfn.ipfn(tpgq,aggregates,dimensions,weight_col='TOTAL',max_iteration=1000000).iteration()
+tpgq['TOTAL']=[round(x) for x in tpgq['TOTAL']]
+
+
+
+# Check HHID Weight Sum
+k=pd.merge(tpgq.groupby(['HHID'],as_index=False).agg({'TOTAL':'sum'}),idwt,how='inner',on='HHID')
+p=px.scatter(k,x='TOTAL',y='PWGTP')
+p.show()
+
+
+
+# Check GQTT
+k=pd.read_csv(path+'POP/gqtt.csv',dtype=float,converters={'CT':str})
+k=k[np.isin(k['CT'],ct)].reset_index(drop=True)
+k.columns=['CT','TOTAL','MOE']
+k=pd.merge(tpgq.groupby(['CT'],as_index=False).agg({'TOTAL':'sum'}),k,how='inner',on=['CT'])
+k=k.sort_values('TOTAL_y').reset_index(drop=True)
+p=px.scatter(k,x='TOTAL_x',y='TOTAL_y')
+p.show()
+fig=go.Figure()
+fig=fig.add_trace(go.Scattergl(name='ACS',
+                               x=list(k.index)+list(k.index[::-1]),
+                               y=list(k['TOTAL_y']+k['MOE'])+list((k['TOTAL_y']-k['MOE'])[::-1]),
+                               fill='toself',
+                               fillcolor='rgba(0,0,255,0.5)',
+                               line=dict(color='rgba(255,255,255,0)')))
+fig=fig.add_trace(go.Scattergl(name='MODEL',
+                               x=k.index,
+                               y=k['TOTAL_x'],
+                               mode='lines'))
+fig.show()
+len(k[(k['TOTAL_x']<=k['TOTAL_y']+k['MOE'])&(k['TOTAL_x']>=k['TOTAL_y']-k['MOE'])])/len(k)
+
+
+
+
+
+
+
+
+
+pumspp=pd.read_csv(path+'POP/pumspp.csv',dtype=str)
+pumspp=pumspp[pumspp['PUMA']==i].reset_index(drop=True)
+tppp=pd.merge(pumspp,tphh[['HHID','CT','TOTAL']].reset_index(drop=True),how='inner',on=['HHID'])
+tppp=tppp[tppp['TOTAL']!=0].reset_index(drop=True)
+
+
+# Check PPID Weight Sum
+k=pd.merge(tppp.groupby(['PPID'],as_index=False).agg({'TOTAL':'sum'}),pumspp,how='inner',on='PPID')
+p=px.scatter(k,x='TOTAL',y='PWGTP')
+p.show()
+
+
+
+# Check PPTT
+k=pd.read_csv(path+'POP/pptt.csv',dtype=float,converters={'CT':str})
+k=k[np.isin(k['CT'],ct)].reset_index(drop=True)
+k.columns=['CT','TOTAL','MOE']
+k=pd.merge(tppp.groupby(['CT'],as_index=False).agg({'TOTAL':'sum'}),k,how='inner',on=['CT'])
+k=k.sort_values('TOTAL_y').reset_index(drop=True)
+p=px.scatter(k,x='TOTAL_x',y='TOTAL_y')
+p.show()
+fig=go.Figure()
+fig=fig.add_trace(go.Scattergl(name='ACS',
+                               x=list(k.index)+list(k.index[::-1]),
+                               y=list(k['TOTAL_y']+k['MOE'])+list((k['TOTAL_y']-k['MOE'])[::-1]),
+                               fill='toself',
+                               fillcolor='rgba(0,0,255,0.5)',
+                               line=dict(color='rgba(255,255,255,0)')))
+fig=fig.add_trace(go.Scattergl(name='MODEL',
+                               x=k.index,
+                               y=k['TOTAL_x'],
+                               mode='lines'))
+fig.show()
+len(k[(k['TOTAL_x']<=k['TOTAL_y']+k['MOE'])&(k['TOTAL_x']>=k['TOTAL_y']-k['MOE'])])/len(k)
+
+
+
+# Check PPSEX
+k=pd.read_csv(path+'POP/ppsex.csv',dtype=float,converters={'CT':str})
+k=k[np.isin(k['CT'],ct)].reset_index(drop=True)
+k=k.melt(id_vars=['CT'],value_vars=['MALE','MALEM','FEMALE','FEMALEM'],var_name='PPSEX',value_name='TOTAL')
+k=pd.merge(k[np.isin(k['PPSEX'],['MALE','FEMALE'])],
+           k[np.isin(k['PPSEX'],['MALEM','FEMALEM'])],how='inner',on='CT')
+k=k[(k['PPSEX_x']+'M')==k['PPSEX_y']].reset_index(drop=True)
+k=k[['CT','PPSEX_x','TOTAL_x','TOTAL_y']].reset_index(drop=True)
+k.columns=['CT','PPSEX','TOTAL','MOE']
+k=pd.merge(tppp.groupby(['CT','PPSEX'],as_index=False).agg({'TOTAL':'sum'}),k,how='inner',on=['CT','PPSEX'])
+k=k.sort_values('TOTAL_y').reset_index(drop=True)
+p=px.scatter(k,x='TOTAL_x',y='TOTAL_y')
+p.show()
+fig=go.Figure()
+fig=fig.add_trace(go.Scattergl(name='ACS',
+                               x=list(k.index)+list(k.index[::-1]),
+                               y=list(k['TOTAL_y']+k['MOE'])+list((k['TOTAL_y']-k['MOE'])[::-1]),
+                               fill='toself',
+                               fillcolor='rgba(0,0,255,0.5)',
+                               line=dict(color='rgba(255,255,255,0)')))
+fig=fig.add_trace(go.Scattergl(name='MODEL',
+                               x=k.index,
+                               y=k['TOTAL_x'],
+                               mode='lines'))
+fig.show()
+len(k[(k['TOTAL_x']<=k['TOTAL_y']+k['MOE'])&(k['TOTAL_x']>=k['TOTAL_y']-k['MOE'])])/len(k)
+
+
+
+# Check PPAGE
+k=pd.read_csv(path+'POP/ppage.csv',dtype=float,converters={'CT':str})
+k=k[np.isin(k['CT'],ct)].reset_index(drop=True)
+k=k.melt(id_vars=['CT'],value_vars=['AGE01','AGE01M','AGE02','AGE02M','AGE03','AGE03M','AGE04','AGE04M',
+                                    'AGE05','AGE05M','AGE06','AGE06M','AGE07','AGE07M','AGE08','AGE08M',
+                                    'AGE09','AGE09M','AGE10','AGE10M','AGE11','AGE11M','AGE12','AGE12M',
+                                    'AGE13','AGE13M','AGE14','AGE14M','AGE15','AGE15M','AGE16','AGE16M',
+                                    'AGE17','AGE17M','AGE18','AGE18M'],var_name='PPAGE',value_name='TOTAL')
+k=pd.merge(k[np.isin(k['PPAGE'],['AGE01','AGE02','AGE03','AGE04','AGE05','AGE06','AGE07','AGE08',
+                                 'AGE09','AGE10','AGE11','AGE12','AGE13','AGE14','AGE15','AGE16',
+                                 'AGE17','AGE18'])],
+           k[np.isin(k['PPAGE'],['AGE01M''AGE02M','AGE03M','AGE04M','AGE05M','AGE06M','AGE07M',
+                                 'AGE08M','AGE09M','AGE10M','AGE11M','AGE12M','AGE13M','AGE14M',
+                                 'AGE15M','AGE16M','AGE17M','AGE18M'])],how='inner',on='CT')
+k=k[(k['PPAGE_x']+'M')==k['PPAGE_y']].reset_index(drop=True)
+k=k[['CT','PPAGE_x','TOTAL_x','TOTAL_y']].reset_index(drop=True)
+k.columns=['CT','PPAGE','TOTAL','MOE']
+k=pd.merge(tppp.groupby(['CT','PPAGE'],as_index=False).agg({'TOTAL':'sum'}),k,how='inner',on=['CT','PPAGE'])
+k=k.sort_values('TOTAL_y').reset_index(drop=True)
+p=px.scatter(k,x='TOTAL_x',y='TOTAL_y')
+p.show()
+fig=go.Figure()
+fig=fig.add_trace(go.Scattergl(name='ACS',
+                               x=list(k.index)+list(k.index[::-1]),
+                               y=list(k['TOTAL_y']+k['MOE'])+list((k['TOTAL_y']-k['MOE'])[::-1]),
+                               fill='toself',
+                               fillcolor='rgba(0,0,255,0.5)',
+                               line=dict(color='rgba(255,255,255,0)')))
+fig=fig.add_trace(go.Scattergl(name='MODEL',
+                               x=k.index,
+                               y=k['TOTAL_x'],
+                               mode='lines'))
+fig.show()
+len(k[(k['TOTAL_x']<=k['TOTAL_y']+k['MOE'])&(k['TOTAL_x']>=k['TOTAL_y']-k['MOE'])])/len(k)
+
+
+
+# Check PPSCH
+k=pd.read_csv(path+'POP/ppsch.csv',dtype=float,converters={'CT':str})
+k=k[np.isin(k['CT'],ct)].reset_index(drop=True)
+k=k.melt(id_vars=['CT'],value_vars=['PR','PRM','KG','KGM','G14','G14M','G58','G58M','HS','HSM',
+                                    'CL','CLM','GS','GSM'],var_name='PPSCH',value_name='TOTAL')
+k=pd.merge(k[np.isin(k['PPSCH'],['PR','KG','G14','G58','HS','CL','GS'])],
+           k[np.isin(k['PPSCH'],['PRM','KGM','G14M','G58M','HSM','CLM','GSM'])],how='inner',on='CT')
+k=k[(k['PPSCH_x']+'M')==k['PPSCH_y']].reset_index(drop=True)
+k=k[['CT','PPSCH_x','TOTAL_x','TOTAL_y']].reset_index(drop=True)
+k.columns=['CT','PPSCH','TOTAL','MOE']
+k=pd.merge(tppp.groupby(['CT','PPSCH'],as_index=False).agg({'TOTAL':'sum'}),k,how='inner',on=['CT','PPSCH'])
+k=k.sort_values('TOTAL_y').reset_index(drop=True)
+p=px.scatter(k,x='TOTAL_x',y='TOTAL_y')
+p.show()
+fig=go.Figure()
+fig=fig.add_trace(go.Scattergl(name='ACS',
+                               x=list(k.index)+list(k.index[::-1]),
+                               y=list(k['TOTAL_y']+k['MOE'])+list((k['TOTAL_y']-k['MOE'])[::-1]),
+                               fill='toself',
+                               fillcolor='rgba(0,0,255,0.5)',
+                               line=dict(color='rgba(255,255,255,0)')))
+fig=fig.add_trace(go.Scattergl(name='MODEL',
+                               x=k.index,
+                               y=k['TOTAL_x'],
+                               mode='lines'))
+fig.show()
+len(k[(k['TOTAL_x']<=k['TOTAL_y']+k['MOE'])&(k['TOTAL_x']>=k['TOTAL_y']-k['MOE'])])/len(k)
+
+
+
+# Check PPMODE
+k=pd.read_csv(path+'POP/ppmode.csv',dtype=float,converters={'CT':str})
+k=k[np.isin(k['CT'],ct)].reset_index(drop=True)
+k=k.melt(id_vars=['CT'],value_vars=['DA','DAM','CP2','CP2M','CP3','CP3M','CP4','CP4M','CP56','CP56M',
+                                    'CP7','CP7M','BS','BSM','SW','SWM','CR','CRM','LR','LRM',
+                                    'FB','FBM','TC','TCM','MC','MCM','BC','BCM','WK','WKM',
+                                    'OT','OTM','HM','HMM'],var_name='PPMODE',value_name='TOTAL')
+k=pd.merge(k[np.isin(k['PPMODE'],['DA','CP2','CP3','CP4','CP56','CP7','BS','SW','CR','LR','FB','TC',
+                                  'MC','BC','WK','OT','HM'])],
+           k[np.isin(k['PPMODE'],['DAM','CP2M','CP3M','CP4M','CP56M','CP7M','BSM','SWM','CRM','LRM',
+                                  'FBM','TCM','MCM','BCM','WKM','OTM','HMM'])],how='inner',on='CT')
+k=k[(k['PPMODE_x']+'M')==k['PPMODE_y']].reset_index(drop=True)
+k=k[['CT','PPMODE_x','TOTAL_x','TOTAL_y']].reset_index(drop=True)
+k.columns=['CT','PPMODE','TOTAL','MOE']
+k=pd.merge(tppp.groupby(['CT','PPMODE'],as_index=False).agg({'TOTAL':'sum'}),k,how='inner',on=['CT','PPMODE'])
+k=k.sort_values('TOTAL_y').reset_index(drop=True)
+p=px.scatter(k,x='TOTAL_x',y='TOTAL_y')
+p.show()
+fig=go.Figure()
+fig=fig.add_trace(go.Scattergl(name='ACS',
+                               x=list(k.index)+list(k.index[::-1]),
+                               y=list(k['TOTAL_y']+k['MOE'])+list((k['TOTAL_y']-k['MOE'])[::-1]),
+                               fill='toself',
+                               fillcolor='rgba(0,0,255,0.5)',
+                               line=dict(color='rgba(255,255,255,0)')))
+fig=fig.add_trace(go.Scattergl(name='MODEL',
+                               x=k.index,
+                               y=k['TOTAL_x'],
+                               mode='lines'))
+fig.show()
+len(k[(k['TOTAL_x']<=k['TOTAL_y']+k['MOE'])&(k['TOTAL_x']>=k['TOTAL_y']-k['MOE'])])/len(k)
+
+
+
+
+
+
+
+
+
+
+
+
 
 
