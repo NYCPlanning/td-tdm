@@ -25,14 +25,14 @@ geoxwalk=pd.read_csv(path+'POP/GEOIDCROSSWALK.csv',dtype=str)
 # Clean up PUMS Household
 pumshh=[]
 for i in ['09','34','36']:
-    pumshh+=[pd.read_csv(path+'POP/PUMS/psam_h'+i+'.csv',dtype=str)]
+    pumshh+=[pd.read_csv(path+'PUMS/psam_h'+i+'.csv',dtype=str)]
 pumshh=pd.concat(pumshh,axis=0,ignore_index=True)
 pumshh['HHID']=pumshh['SERIALNO'].copy()
 pumshh['PUMA']=pumshh['ST']+pumshh['PUMA']
 pumshh=pd.merge(pumshh,geoxwalk[['PUMA2010','StateCounty']].drop_duplicates(keep='first'),how='left',left_on='PUMA',right_on='PUMA2010')
 pumshh=pumshh[np.isin(pumshh['StateCounty'],bpm)].reset_index(drop=True)
 pumshhgq=pumshh.loc[pumshh['TYPE']!='1',['HHID','PUMA']].reset_index(drop=True)
-pumshhgq.to_csv(path+'POP/pumshhgq.csv',index=False)
+pumshhgq.to_csv(path+'PUMS/pumshhgq.csv',index=False)
 pumshh=pumshh[pumshh['TYPE']=='1'].reset_index(drop=True)
 pumshh=pumshh[pumshh['WGTP']!='0'].reset_index(drop=True)
 pumshh['HHSIZE']=np.where(pumshh['NP']=='0','VAC',
@@ -99,19 +99,14 @@ pumshh['HHVEH']=np.where(pumshh['NP']=='0','VAC',
                 np.where(pumshh['VEH']=='2','VEH2',
                 np.where(pumshh['VEH']=='3','VEH3','VEH4')))))
 pumshh=pumshh[['HHID','PUMA','WGTP','HHSIZE','HHTYPE','HHINC','HHTEN','HHSTR','HHBLT','HHBED','HHVEH']].reset_index(drop=True)
-pumshh.to_csv(path+'POP/PUMS/pumshh.csv',index=False)
-
-
-
-
-
+pumshh.to_csv(path+'PUMS/pumshh.csv',index=False)
 
 
 
 # Clean up PUMS Person
 pumspp=[]
 for i in ['09','34','36']:
-    pumspp+=[pd.read_csv(path+'POP/PUMS/psam_p'+i+'.csv',dtype=str)]
+    pumspp+=[pd.read_csv(path+'PUMS/psam_p'+i+'.csv',dtype=str)]
 pumspp=pd.concat(pumspp,axis=0,ignore_index=True)
 pumspp['PPID']=pumspp['SERIALNO']+'|'+pumspp['SPORDER']
 pumspp['HHID']=pumspp['SERIALNO'].copy()
@@ -120,7 +115,7 @@ pumspp=pd.merge(pumspp,geoxwalk[['PUMA2010','StateCounty']].drop_duplicates(keep
 pumspp=pumspp[np.isin(pumspp['StateCounty'],bpm)].reset_index(drop=True)
 pumsppgq=pumspp[np.isin(pumspp['RELSHIPP'],['37','38'])].reset_index(drop=True)
 pumsppgq=pumsppgq[['PPID','HHID','PUMA','PWGTP']].reset_index(drop=True)
-pumsppgq.to_csv(path+'POP/pumsppgq.csv',index=False)
+pumsppgq.to_csv(path+'PUMS/pumsppgq.csv',index=False)
 pumspp=pumspp[~np.isin(pumspp['RELSHIPP'],['37','38'])].reset_index(drop=True)
 pumspp=pumspp[pumspp['PWGTP']!='0'].reset_index(drop=True)
 pumspp['PPSEX']=np.where(pumspp['SEX']=='1','MALE','FEMALE')
@@ -180,7 +175,7 @@ pumspp['PPMODE']=np.where((pumspp['JWTRNS']=='01')&(pumspp['JWRIP']=='1'),'DA',
                  np.where(pumspp['JWTRNS']=='11','HM',
                  np.where(pumspp['JWTRNS']=='12','OT','NK')))))))))))))))))))))
 pumspp=pumspp[['PPID','HHID','PUMA','PWGTP','PPSEX','PPAGE','PPSCH','PPMODE']].reset_index(drop=True)
-pumspp.to_csv(path+'POP/PUMS/pumspp.csv',index=False)
+pumspp.to_csv(path+'PUMS/pumspp.csv',index=False)
 
 
 

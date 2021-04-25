@@ -28,33 +28,27 @@ i='3603805'
 ct=geoxwalk.loc[geoxwalk['PUMA2010']==i,'CensusTract2010'].unique()
 
 # Households
-pumshh=pd.read_csv(path+'POP/pumshh.csv',dtype=str)
+pumshh=pd.read_csv(path+'PUMS/pumshh.csv',dtype=str)
 pumshh=pumshh[pumshh['PUMA']==i].reset_index(drop=True)
 
 tphh=pd.DataFrame(ipfn.ipfn.product(pumshh['HHID'].unique(),ct),columns=['HHID','CT'])
 tphh=pd.merge(tphh,pumshh[['HHID','HHINC']],how='left',on='HHID')
 tphh['TOTAL']=1
 
-idwt=pumshh[['HHID','WGTP']].reset_index(drop=True)
-idwt['WGTP']=pd.to_numeric(idwt['WGTP'])
-idwt=idwt.set_index(['HHID'])
-idwt=idwt.iloc[:,0]
+hhwt=pumshh[['HHID','WGTP']].reset_index(drop=True)
+hhwt['WGTP']=pd.to_numeric(hhwt['WGTP'])
+hhwt=hhwt.set_index(['HHID'])
+hhwt=hhwt.iloc[:,0]
 
-# cthhsize=pd.read_csv(path+'POP/hhsize.csv',dtype=float,converters={'CT':str})
-# cthhsize=cthhsize.loc[np.isin(cthhsize['CT'],ct),['CT','SIZE1','SIZE2','SIZE3','SIZE4']].reset_index(drop=True)
-# cthhsize=cthhsize.melt(id_vars=['CT'],value_vars=['SIZE1','SIZE2','SIZE3','SIZE4'],var_name='HHSIZE',value_name='TOTAL')
-# cthhsize=cthhsize.set_index(['CT','HHSIZE'])
-# cthhsize=cthhsize.iloc[:,0]
-
-cthhinc=pd.read_csv(path+'POP/hhinc.csv',dtype=float,converters={'CT':str})
-cthhinc=cthhinc.loc[np.isin(cthhinc['CT'],ct),['CT','INC01','INC02','INC03','INC04','INC05','INC06',
-                                               'INC07','INC08','INC09','INC10','INC11']].reset_index(drop=True)
-cthhinc=cthhinc.melt(id_vars=['CT'],value_vars=['INC01','INC02','INC03','INC04','INC05','INC06',
+cthhinc=pd.read_csv(path+'ACS/hhinc.csv',dtype=float,converters={'CT':str})
+cthhinc=cthhinc.loc[np.isin(cthhinc['CT'],ct),['CT','VAC','INC01','INC02','INC03','INC04','INC05',
+                                               'INC06','INC07','INC08','INC09','INC10','INC11']].reset_index(drop=True)
+cthhinc=cthhinc.melt(id_vars=['CT'],value_vars=['VAC','INC01','INC02','INC03','INC04','INC05','INC06',
                                                 'INC07','INC08','INC09','INC10','INC11'],var_name='HHINC',value_name='TOTAL')
 cthhinc=cthhinc.set_index(['CT','HHINC'])
 cthhinc=cthhinc.iloc[:,0]
 
-aggregates=[idwt,cthhinc]
+aggregates=[hhwt,cthhinc]
 dimensions=[['HHID'],['CT','HHINC']]
 
 tphh=ipfn.ipfn.ipfn(tphh,aggregates,dimensions,weight_col='TOTAL',max_iteration=1000000).iteration()
@@ -62,15 +56,45 @@ tphh['TOTAL']=[round(x) for x in tphh['TOTAL']]
 
 
 
+# Group Quarter
+pumsppgq=pd.read_csv(path+'PUMS/pumsppgq.csv',dtype=str)
+pumsppgq=pumsppgq[pumsppgq['PUMA']==i].reset_index(drop=True)
+pumsppgq=pumsppgq.groupby(['HHID'],as_index=False).agg({'PWGTP':'sum'}).reset_index(drop=True)
+
+tpgq=pd.DataFrame(ipfn.ipfn.product(pumsppgq['HHID'].unique(),ct),columns=['HHID','CT'])
+tpgq['TOTAL']=1
+
+gqwt=pumsppgq[['HHID','PWGTP']].reset_index(drop=True)
+gqwt['PWGTP']=pd.to_numeric(gqwt['PWGTP'])
+gqwt=gqwt.set_index(['HHID'])
+gqwt=gqwt.iloc[:,0]
+
+gqtt=pd.read_csv(path+'ACS/gqtt.csv',dtype=float,converters={'CT':str})
+gqtt=gqtt.loc[np.isin(gqtt['CT'],ct),['CT','GQTT']].reset_index(drop=True)
+gqtt=gqtt.set_index(['CT'])
+gqtt=gqtt.iloc[:,0]
+
+aggregates=[gqwt,gqtt]
+dimensions=[['HHID'],['CT']]
+
+tpgq=ipfn.ipfn.ipfn(tpgq,aggregates,dimensions,weight_col='TOTAL',max_iteration=1000000).iteration()
+tpgq['TOTAL']=[round(x) for x in tpgq['TOTAL']]
+
+
+
+
+
+# Validation
+# Check Household
 # Check HHID Weight Sum
-k=pd.merge(tp.groupby(['HHID'],as_index=False).agg({'TOTAL':'sum'}),idwt,how='inner',on='HHID')
+k=pd.merge(tphh.groupby(['HHID'],as_index=False).agg({'TOTAL':'sum'}),hhwt,how='inner',on='HHID')
 p=px.scatter(k,x='TOTAL',y='WGTP')
 p.show()
 
 
 
 # Check HHTT
-k=pd.read_csv(path+'POP/hhtt.csv',dtype=float,converters={'CT':str})
+k=pd.read_csv(path+'ACS/hhtt.csv',dtype=float,converters={'CT':str})
 k=k[np.isin(k['CT'],ct)].reset_index(drop=True)
 k.columns=['CT','TOTAL','MOE']
 k=pd.merge(tphh.groupby(['CT'],as_index=False).agg({'TOTAL':'sum'}),k,how='inner',on=['CT'])
@@ -89,17 +113,51 @@ fig=fig.add_trace(go.Scattergl(name='MODEL',
                                y=k['TOTAL_x'],
                                mode='lines'))
 fig.show()
-len(k[(k['TOTAL_x']<=k['TOTAL_y']+k['MOE'])&(k['TOTAL_x']>=k['TOTAL_y']-k['MOE'])])/len(k)
+print(len(k[(k['TOTAL_x']<=k['TOTAL_y']+k['MOE'])&(k['TOTAL_x']>=k['TOTAL_y']-k['MOE'])])/len(k))
+print(np.sqrt(sum((k['TOTAL_x']-k['TOTAL_y'])**2)/len(k)))
+
+
+
+# Check HHOCC
+tptest=tphh.copy()
+tptest['HHOCC']=np.where(tptest['HHINC']=='VAC','VAC','OCC')
+k=pd.read_csv(path+'ACS/hhocc.csv',dtype=float,converters={'CT':str})
+k=k[np.isin(k['CT'],ct)].reset_index(drop=True)
+k=k.melt(id_vars=['CT'],value_vars=['VAC','VACM','OCC','OCCM'],var_name='HHOCC',value_name='TOTAL')
+k=pd.merge(k[np.isin(k['HHOCC'],['VAC','OCC'])],
+           k[np.isin(k['HHOCC'],['VACM','OCCM'])],how='inner',on='CT')
+k=k[(k['HHOCC_x']+'M')==k['HHOCC_y']].reset_index(drop=True)
+k=k[['CT','HHOCC_x','TOTAL_x','TOTAL_y']].reset_index(drop=True)
+k.columns=['CT','HHOCC','TOTAL','MOE']
+k=pd.merge(tptest.groupby(['CT','HHOCC'],as_index=False).agg({'TOTAL':'sum'}),k,how='inner',on=['CT','HHOCC'])
+k=k.sort_values('TOTAL_y').reset_index(drop=True)
+p=px.scatter(k,x='TOTAL_x',y='TOTAL_y')
+p.show()
+fig=go.Figure()
+fig=fig.add_trace(go.Scattergl(name='ACS',
+                               x=list(k.index)+list(k.index[::-1]),
+                               y=list(k['TOTAL_y']+k['MOE'])+list((k['TOTAL_y']-k['MOE'])[::-1]),
+                               fill='toself',
+                               fillcolor='rgba(0,0,255,0.5)',
+                               line=dict(color='rgba(255,255,255,0)')))
+fig=fig.add_trace(go.Scattergl(name='MODEL',
+                               x=k.index,
+                               y=k['TOTAL_x'],
+                               mode='lines'))
+fig.show()
+print(len(k[(k['TOTAL_x']<=k['TOTAL_y']+k['MOE'])&(k['TOTAL_x']>=k['TOTAL_y']-k['MOE'])])/len(k))
+print(np.sqrt(sum((k['TOTAL_x']-k['TOTAL_y'])**2)/len(k)))
 
 
 
 # Check HHSIZE
 tptest=pd.merge(tphh,pumshh[['HHID','HHSIZE']],how='inner',on='HHID')
-k=pd.read_csv(path+'POP/hhsize.csv',dtype=float,converters={'CT':str})
+k=pd.read_csv(path+'ACS/hhsize.csv',dtype=float,converters={'CT':str})
 k=k[np.isin(k['CT'],ct)].reset_index(drop=True)
-k=k.melt(id_vars=['CT'],value_vars=['SIZE1','SIZE1M','SIZE2','SIZE2M','SIZE3','SIZE3M','SIZE4','SIZE4M'],var_name='HHSIZE',value_name='TOTAL')
-k=pd.merge(k[np.isin(k['HHSIZE'],['SIZE1','SIZE2','SIZE3','SIZE4'])],
-           k[np.isin(k['HHSIZE'],['SIZE1M','SIZE2M','SIZE3M','SIZE4M'])],how='inner',on='CT')
+k=k.melt(id_vars=['CT'],value_vars=['VAC','VACM','SIZE1','SIZE1M','SIZE2','SIZE2M','SIZE3','SIZE3M',
+                                    'SIZE4','SIZE4M'],var_name='HHSIZE',value_name='TOTAL')
+k=pd.merge(k[np.isin(k['HHSIZE'],['VAC','SIZE1','SIZE2','SIZE3','SIZE4'])],
+           k[np.isin(k['HHSIZE'],['VACM','SIZE1M','SIZE2M','SIZE3M','SIZE4M'])],how='inner',on='CT')
 k=k[(k['HHSIZE_x']+'M')==k['HHSIZE_y']].reset_index(drop=True)
 k=k[['CT','HHSIZE_x','TOTAL_x','TOTAL_y']].reset_index(drop=True)
 k.columns=['CT','HHSIZE','TOTAL','MOE']
@@ -119,13 +177,14 @@ fig=fig.add_trace(go.Scattergl(name='MODEL',
                                y=k['TOTAL_x'],
                                mode='lines'))
 fig.show()
-len(k[(k['TOTAL_x']<=k['TOTAL_y']+k['MOE'])&(k['TOTAL_x']>=k['TOTAL_y']-k['MOE'])])/len(k)
+print(len(k[(k['TOTAL_x']<=k['TOTAL_y']+k['MOE'])&(k['TOTAL_x']>=k['TOTAL_y']-k['MOE'])])/len(k))
+print(np.sqrt(sum((k['TOTAL_x']-k['TOTAL_y'])**2)/len(k)))
 
 
 
 # Check HHTYPE
 tptest=pd.merge(tphh,pumshh[['HHID','HHTYPE']],how='inner',on='HHID')
-k=pd.read_csv(path+'POP/hhtype.csv',dtype=float,converters={'CT':str})
+k=pd.read_csv(path+'ACS/hhtype.csv',dtype=float,converters={'CT':str})
 k=k[np.isin(k['CT'],ct)].reset_index(drop=True)
 k['TYPE1']=k['MC']-k['MCC']+k['CC']-k['CCC']
 k['TYPE1M']=np.sqrt(k['MCM']**2+k['MCCM']**2+k['CCM']**2+k['CCCM']**2)
@@ -137,10 +196,10 @@ k['TYPE4']=k['MHC']+k['FHC']
 k['TYPE4M']=np.sqrt(k['MHCM']**2+k['FHCM']**2)
 k['TYPE5']=k['MH']-k['MHC']-k['MHA']+k['FH']-k['FHC']-k['FHA']
 k['TYPE5M']=np.sqrt(k['MHM']**2+k['MHCM']**2+k['MHAM']**2+k['FHM']**2+k['FHCM']**2+k['FHAM']**2)
-k=k.melt(id_vars=['CT'],value_vars=['TYPE1','TYPE1M','TYPE1','TYPE2M','TYPE3','TYPE3M','TYPE4','TYPE4M',
-                                    'TYPE5','TYPE5M'],var_name='HHTYPE',value_name='TOTAL')
-k=pd.merge(k[np.isin(k['HHTYPE'],['TYPE1','TYPE2','TYPE3','TYPE4','TYPE5'])],
-           k[np.isin(k['HHTYPE'],['TYPE1M','TYPE2M','TYPE3M','TYPE4M','TYPE5M'])],how='inner',on='CT')
+k=k.melt(id_vars=['CT'],value_vars=['VAC','VACM','TYPE1','TYPE1M','TYPE1','TYPE2M','TYPE3','TYPE3M',
+                                    'TYPE4','TYPE4M','TYPE5','TYPE5M'],var_name='HHTYPE',value_name='TOTAL')
+k=pd.merge(k[np.isin(k['HHTYPE'],['VAC','TYPE1','TYPE2','TYPE3','TYPE4','TYPE5'])],
+           k[np.isin(k['HHTYPE'],['VACM','TYPE1M','TYPE2M','TYPE3M','TYPE4M','TYPE5M'])],how='inner',on='CT')
 k=k[(k['HHTYPE_x']+'M')==k['HHTYPE_y']].reset_index(drop=True)
 k=k[['CT','HHTYPE_x','TOTAL_x','TOTAL_y']].reset_index(drop=True)
 k.columns=['CT','HHTYPE','TOTAL','MOE']
@@ -160,19 +219,21 @@ fig=fig.add_trace(go.Scattergl(name='MODEL',
                                y=k['TOTAL_x'],
                                mode='lines'))
 fig.show()
-len(k[(k['TOTAL_x']<=k['TOTAL_y']+k['MOE'])&(k['TOTAL_x']>=k['TOTAL_y']-k['MOE'])])/len(k)
+print(len(k[(k['TOTAL_x']<=k['TOTAL_y']+k['MOE'])&(k['TOTAL_x']>=k['TOTAL_y']-k['MOE'])])/len(k))
+print(np.sqrt(sum((k['TOTAL_x']-k['TOTAL_y'])**2)/len(k)))
 
 
 
 # Check HHINC
 # tptest=pd.merge(tp,pumshh[['HHID','HHINC']],how='inner',on='HHID')
-k=pd.read_csv(path+'POP/hhinc.csv',dtype=float,converters={'CT':str})
+k=pd.read_csv(path+'ACS/hhinc.csv',dtype=float,converters={'CT':str})
 k=k[np.isin(k['CT'],ct)].reset_index(drop=True)
-k=k.melt(id_vars=['CT'],value_vars=['INC01','INC01M','INC02','INC02M','INC03','INC03M','INC04','INC04M',
-                                    'INC05','INC05M','INC06','INC06M','INC07','INC07M','INC08','INC08M',
-                                    'INC09','INC09M','INC10','INC10M','INC11','INC11M'],var_name='HHINC',value_name='TOTAL')
-k=pd.merge(k[np.isin(k['HHINC'],['INC01','INC02','INC03','INC04','INC05','INC06','INC07','INC08','INC09','INC10','INC11'])],
-           k[np.isin(k['HHINC'],['INC01M','INC02M','INC03M','INC04M','INC05M','INC06M','INC07M','INC08M','INC09M','INC10M','INC11M'])],how='inner',on='CT')
+k=k.melt(id_vars=['CT'],value_vars=['VAC','VACM','INC01','INC01M','INC02','INC02M','INC03','INC03M',
+                                    'INC04','INC04M','INC05','INC05M','INC06','INC06M','INC07','INC07M',
+                                    'INC08','INC08M','INC09','INC09M','INC10','INC10M',
+                                    'INC11','INC11M'],var_name='HHINC',value_name='TOTAL')
+k=pd.merge(k[np.isin(k['HHINC'],['VAC','INC01','INC02','INC03','INC04','INC05','INC06','INC07','INC08','INC09','INC10','INC11'])],
+           k[np.isin(k['HHINC'],['VACM','INC01M','INC02M','INC03M','INC04M','INC05M','INC06M','INC07M','INC08M','INC09M','INC10M','INC11M'])],how='inner',on='CT')
 k=k[(k['HHINC_x']+'M')==k['HHINC_y']].reset_index(drop=True)
 k=k[['CT','HHINC_x','TOTAL_x','TOTAL_y']].reset_index(drop=True)
 k.columns=['CT','HHINC','TOTAL','MOE']
@@ -192,17 +253,18 @@ fig=fig.add_trace(go.Scattergl(name='MODEL',
                                y=k['TOTAL_x'],
                                mode='lines'))
 fig.show()
-len(k[(k['TOTAL_x']<=k['TOTAL_y']+k['MOE'])&(k['TOTAL_x']>=k['TOTAL_y']-k['MOE'])])/len(k)
+print(len(k[(k['TOTAL_x']<=k['TOTAL_y']+k['MOE'])&(k['TOTAL_x']>=k['TOTAL_y']-k['MOE'])])/len(k))
+print(np.sqrt(sum((k['TOTAL_x']-k['TOTAL_y'])**2)/len(k)))
 
 
 
 # Check HHTEN
 tptest=pd.merge(tphh,pumshh[['HHID','HHTEN']],how='inner',on='HHID')
-k=pd.read_csv(path+'POP/hhten.csv',dtype=float,converters={'CT':str})
+k=pd.read_csv(path+'ACS/hhten.csv',dtype=float,converters={'CT':str})
 k=k[np.isin(k['CT'],ct)].reset_index(drop=True)
-k=k.melt(id_vars=['CT'],value_vars=['OWNER','OWNERM','RENTER','RENTERM'],var_name='HHTEN',value_name='TOTAL')
-k=pd.merge(k[np.isin(k['HHTEN'],['OWNER','RENTER'])],
-           k[np.isin(k['HHTEN'],['OWNERM','RENTERM'])],how='inner',on='CT')
+k=k.melt(id_vars=['CT'],value_vars=['VAC','VACM','OWNER','OWNERM','RENTER','RENTERM'],var_name='HHTEN',value_name='TOTAL')
+k=pd.merge(k[np.isin(k['HHTEN'],['VAC','OWNER','RENTER'])],
+           k[np.isin(k['HHTEN'],['VACM','OWNERM','RENTERM'])],how='inner',on='CT')
 k=k[(k['HHTEN_x']+'M')==k['HHTEN_y']].reset_index(drop=True)
 k=k[['CT','HHTEN_x','TOTAL_x','TOTAL_y']].reset_index(drop=True)
 k.columns=['CT','HHTEN','TOTAL','MOE']
@@ -222,18 +284,20 @@ fig=fig.add_trace(go.Scattergl(name='MODEL',
                                y=k['TOTAL_x'],
                                mode='lines'))
 fig.show()
-len(k[(k['TOTAL_x']<=k['TOTAL_y']+k['MOE'])&(k['TOTAL_x']>=k['TOTAL_y']-k['MOE'])])/len(k)
+print(len(k[(k['TOTAL_x']<=k['TOTAL_y']+k['MOE'])&(k['TOTAL_x']>=k['TOTAL_y']-k['MOE'])])/len(k))
+print(np.sqrt(sum((k['TOTAL_x']-k['TOTAL_y'])**2)/len(k)))
 
 
 
 # Check HHSTR
 tptest=pd.merge(tphh,pumshh[['HHID','HHSTR']],how='inner',on='HHID')
-k=pd.read_csv(path+'POP/hhstr.csv',dtype=float,converters={'CT':str})
+k=pd.read_csv(path+'ACS/hhstr.csv',dtype=float,converters={'CT':str})
 k=k[np.isin(k['CT'],ct)].reset_index(drop=True)
-k=k.melt(id_vars=['CT'],value_vars=['STR1D','STR1DM','STR1A','STR1AM','STR2','STR2M','STR34','STR34M',
-                                    'STR59','STR59M','STR10','STR10M','STRO','STROM'],var_name='HHSTR',value_name='TOTAL')
-k=pd.merge(k[np.isin(k['HHSTR'],['STR1D','STR1A','STR2','STR34','STR59','STR10','STRO'])],
-           k[np.isin(k['HHSTR'],['STR1DM','STR1AM','STR2M','STR34M','STR59M','STR10M','STROM'])],how='inner',on='CT')
+k=k.melt(id_vars=['CT'],value_vars=['VAC','VACM','STR1D','STR1DM','STR1A','STR1AM','STR2','STR2M',
+                                    'STR34','STR34M','STR59','STR59M','STR10','STR10M',
+                                    'STRO','STROM'],var_name='HHSTR',value_name='TOTAL')
+k=pd.merge(k[np.isin(k['HHSTR'],['VAC','STR1D','STR1A','STR2','STR34','STR59','STR10','STRO'])],
+           k[np.isin(k['HHSTR'],['VACM','STR1DM','STR1AM','STR2M','STR34M','STR59M','STR10M','STROM'])],how='inner',on='CT')
 k=k[(k['HHSTR_x']+'M')==k['HHSTR_y']].reset_index(drop=True)
 k=k[['CT','HHSTR_x','TOTAL_x','TOTAL_y']].reset_index(drop=True)
 k.columns=['CT','HHSTR','TOTAL','MOE']
@@ -253,13 +317,14 @@ fig=fig.add_trace(go.Scattergl(name='MODEL',
                                y=k['TOTAL_x'],
                                mode='lines'))
 fig.show()
-len(k[(k['TOTAL_x']<=k['TOTAL_y']+k['MOE'])&(k['TOTAL_x']>=k['TOTAL_y']-k['MOE'])])/len(k)
+print(len(k[(k['TOTAL_x']<=k['TOTAL_y']+k['MOE'])&(k['TOTAL_x']>=k['TOTAL_y']-k['MOE'])])/len(k))
+print(np.sqrt(sum((k['TOTAL_x']-k['TOTAL_y'])**2)/len(k)))
 
 
 
 # Check HHBLT
 tptest=pd.merge(tphh,pumshh[['HHID','HHBLT']],how='inner',on='HHID')
-k=pd.read_csv(path+'POP/hhblt.csv',dtype=float,converters={'CT':str})
+k=pd.read_csv(path+'ACS/hhblt.csv',dtype=float,converters={'CT':str})
 k=k[np.isin(k['CT'],ct)].reset_index(drop=True)
 k=k.melt(id_vars=['CT'],value_vars=['B14','B14M','B10','B10M','B00','B00M','B90','B90M','B80','B80M',
                                     'B70','B70M','B60','B60M','B50','B50M','B40','B40M','B39','B39M'],var_name='HHBLT',value_name='TOTAL')
@@ -284,13 +349,14 @@ fig=fig.add_trace(go.Scattergl(name='MODEL',
                                y=k['TOTAL_x'],
                                mode='lines'))
 fig.show()
-len(k[(k['TOTAL_x']<=k['TOTAL_y']+k['MOE'])&(k['TOTAL_x']>=k['TOTAL_y']-k['MOE'])])/len(k)
+print(len(k[(k['TOTAL_x']<=k['TOTAL_y']+k['MOE'])&(k['TOTAL_x']>=k['TOTAL_y']-k['MOE'])])/len(k))
+print(np.sqrt(sum((k['TOTAL_x']-k['TOTAL_y'])**2)/len(k)))
 
 
 
 # Check HHBED
 tptest=pd.merge(tphh,pumshh[['HHID','HHBED']],how='inner',on='HHID')
-k=pd.read_csv(path+'POP/hhbed.csv',dtype=float,converters={'CT':str})
+k=pd.read_csv(path+'ACS/hhbed.csv',dtype=float,converters={'CT':str})
 k=k[np.isin(k['CT'],ct)].reset_index(drop=True)
 k=k.melt(id_vars=['CT'],value_vars=['BED0','BED0M','BED1','BED1M','BED2','BED2M','BED3','BED3M',
                                     'BED4','BED4M','BED5','BED5M'],var_name='HHBED',value_name='TOTAL')
@@ -315,18 +381,19 @@ fig=fig.add_trace(go.Scattergl(name='MODEL',
                                y=k['TOTAL_x'],
                                mode='lines'))
 fig.show()
-len(k[(k['TOTAL_x']<=k['TOTAL_y']+k['MOE'])&(k['TOTAL_x']>=k['TOTAL_y']-k['MOE'])])/len(k)
+print(len(k[(k['TOTAL_x']<=k['TOTAL_y']+k['MOE'])&(k['TOTAL_x']>=k['TOTAL_y']-k['MOE'])])/len(k))
+print(np.sqrt(sum((k['TOTAL_x']-k['TOTAL_y'])**2)/len(k)))
 
 
 
 # Check HHVEH
 tptest=pd.merge(tphh,pumshh[['HHID','HHVEH']],how='inner',on='HHID')
-k=pd.read_csv(path+'POP/hhveh.csv',dtype=float,converters={'CT':str})
+k=pd.read_csv(path+'ACS/hhveh.csv',dtype=float,converters={'CT':str})
 k=k[np.isin(k['CT'],ct)].reset_index(drop=True)
-k=k.melt(id_vars=['CT'],value_vars=['VEH0','VEH0M','VEH1','VEH1M','VEH2','VEH2M','VEH3','VEH3M',
-                                    'VEH4','VEH4M'],var_name='HHVEH',value_name='TOTAL')
-k=pd.merge(k[np.isin(k['HHVEH'],['VEH0','VEH1','VEH2','VEH3','VEH4'])],
-           k[np.isin(k['HHVEH'],['VEH0M','VEH1M','VEH2M','VEH3M','VEH4M'])],how='inner',on='CT')
+k=k.melt(id_vars=['CT'],value_vars=['VAC','VACM','VEH0','VEH0M','VEH1','VEH1M','VEH2','VEH2M',
+                                    'VEH3','VEH3M','VEH4','VEH4M'],var_name='HHVEH',value_name='TOTAL')
+k=pd.merge(k[np.isin(k['HHVEH'],['VAC','VEH0','VEH1','VEH2','VEH3','VEH4'])],
+           k[np.isin(k['HHVEH'],['VACM','VEH0M','VEH1M','VEH2M','VEH3M','VEH4M'])],how='inner',on='CT')
 k=k[(k['HHVEH_x']+'M')==k['HHVEH_y']].reset_index(drop=True)
 k=k[['CT','HHVEH_x','TOTAL_x','TOTAL_y']].reset_index(drop=True)
 k.columns=['CT','HHVEH','TOTAL','MOE']
@@ -346,56 +413,21 @@ fig=fig.add_trace(go.Scattergl(name='MODEL',
                                y=k['TOTAL_x'],
                                mode='lines'))
 fig.show()
-len(k[(k['TOTAL_x']<=k['TOTAL_y']+k['MOE'])&(k['TOTAL_x']>=k['TOTAL_y']-k['MOE'])])/len(k)
+print(len(k[(k['TOTAL_x']<=k['TOTAL_y']+k['MOE'])&(k['TOTAL_x']>=k['TOTAL_y']-k['MOE'])])/len(k))
+print(np.sqrt(sum((k['TOTAL_x']-k['TOTAL_y'])**2)/len(k)))
 
 
 
-
-
-
-
-
-
-
-
-
-
-
-# Group Quarter IPF
-pumsppgq=pd.read_csv(path+'POP/pumsppgq.csv',dtype=str)
-pumsppgq=pumsppgq[pumsppgq['PUMA']==i].reset_index(drop=True)
-pumsppgq=pumsppgq.groupby(['HHID'],as_index=False).agg({'PWGTP':'sum'}).reset_index(drop=True)
-
-tpgq=pd.DataFrame(ipfn.ipfn.product(pumsppgq['HHID'].unique(),ct),columns=['HHID','CT'])
-tpgq['TOTAL']=1
-
-idwt=pumsppgq[['HHID','PWGTP']].reset_index(drop=True)
-idwt['PWGTP']=pd.to_numeric(idwt['PWGTP'])
-idwt=idwt.set_index(['HHID'])
-idwt=idwt.iloc[:,0]
-
-gqtt=pd.read_csv(path+'POP/gqtt.csv',dtype=float,converters={'CT':str})
-gqtt=gqtt.loc[np.isin(gqtt['CT'],ct),['CT','GQTT']].reset_index(drop=True)
-gqtt=gqtt.set_index(['CT'])
-gqtt=gqtt.iloc[:,0]
-
-aggregates=[idwt,gqtt]
-dimensions=[['HHID'],['CT']]
-
-tpgq=ipfn.ipfn.ipfn(tpgq,aggregates,dimensions,weight_col='TOTAL',max_iteration=1000000).iteration()
-tpgq['TOTAL']=[round(x) for x in tpgq['TOTAL']]
-
-
-
-# Check HHID Weight Sum
-k=pd.merge(tpgq.groupby(['HHID'],as_index=False).agg({'TOTAL':'sum'}),idwt,how='inner',on='HHID')
+# Check Group Quarter
+# Check GQ Weight Sum
+k=pd.merge(tpgq.groupby(['HHID'],as_index=False).agg({'TOTAL':'sum'}),gqwt,how='inner',on='HHID')
 p=px.scatter(k,x='TOTAL',y='PWGTP')
 p.show()
 
 
 
 # Check GQTT
-k=pd.read_csv(path+'POP/gqtt.csv',dtype=float,converters={'CT':str})
+k=pd.read_csv(path+'ACS/gqtt.csv',dtype=float,converters={'CT':str})
 k=k[np.isin(k['CT'],ct)].reset_index(drop=True)
 k.columns=['CT','TOTAL','MOE']
 k=pd.merge(tpgq.groupby(['CT'],as_index=False).agg({'TOTAL':'sum'}),k,how='inner',on=['CT'])
@@ -414,20 +446,17 @@ fig=fig.add_trace(go.Scattergl(name='MODEL',
                                y=k['TOTAL_x'],
                                mode='lines'))
 fig.show()
-len(k[(k['TOTAL_x']<=k['TOTAL_y']+k['MOE'])&(k['TOTAL_x']>=k['TOTAL_y']-k['MOE'])])/len(k)
+print(len(k[(k['TOTAL_x']<=k['TOTAL_y']+k['MOE'])&(k['TOTAL_x']>=k['TOTAL_y']-k['MOE'])])/len(k))
+print(np.sqrt(sum((k['TOTAL_x']-k['TOTAL_y'])**2)/len(k)))
 
 
 
-
-
-
-
-
-
-pumspp=pd.read_csv(path+'POP/pumspp.csv',dtype=str)
+# Check Person
+pumspp=pd.read_csv(path+'PUMS/pumspp.csv',dtype=str)
 pumspp=pumspp[pumspp['PUMA']==i].reset_index(drop=True)
 tppp=pd.merge(pumspp,tphh[['HHID','CT','TOTAL']].reset_index(drop=True),how='inner',on=['HHID'])
 tppp=tppp[tppp['TOTAL']!=0].reset_index(drop=True)
+
 
 
 # Check PPID Weight Sum
@@ -438,7 +467,7 @@ p.show()
 
 
 # Check PPTT
-k=pd.read_csv(path+'POP/pptt.csv',dtype=float,converters={'CT':str})
+k=pd.read_csv(path+'ACS/pptt.csv',dtype=float,converters={'CT':str})
 k=k[np.isin(k['CT'],ct)].reset_index(drop=True)
 k.columns=['CT','TOTAL','MOE']
 k=pd.merge(tppp.groupby(['CT'],as_index=False).agg({'TOTAL':'sum'}),k,how='inner',on=['CT'])
@@ -457,12 +486,13 @@ fig=fig.add_trace(go.Scattergl(name='MODEL',
                                y=k['TOTAL_x'],
                                mode='lines'))
 fig.show()
-len(k[(k['TOTAL_x']<=k['TOTAL_y']+k['MOE'])&(k['TOTAL_x']>=k['TOTAL_y']-k['MOE'])])/len(k)
+print(len(k[(k['TOTAL_x']<=k['TOTAL_y']+k['MOE'])&(k['TOTAL_x']>=k['TOTAL_y']-k['MOE'])])/len(k))
+print(np.sqrt(sum((k['TOTAL_x']-k['TOTAL_y'])**2)/len(k)))
 
 
 
 # Check PPSEX
-k=pd.read_csv(path+'POP/ppsex.csv',dtype=float,converters={'CT':str})
+k=pd.read_csv(path+'ACS/ppsex.csv',dtype=float,converters={'CT':str})
 k=k[np.isin(k['CT'],ct)].reset_index(drop=True)
 k=k.melt(id_vars=['CT'],value_vars=['MALE','MALEM','FEMALE','FEMALEM'],var_name='PPSEX',value_name='TOTAL')
 k=pd.merge(k[np.isin(k['PPSEX'],['MALE','FEMALE'])],
@@ -486,12 +516,13 @@ fig=fig.add_trace(go.Scattergl(name='MODEL',
                                y=k['TOTAL_x'],
                                mode='lines'))
 fig.show()
-len(k[(k['TOTAL_x']<=k['TOTAL_y']+k['MOE'])&(k['TOTAL_x']>=k['TOTAL_y']-k['MOE'])])/len(k)
+print(len(k[(k['TOTAL_x']<=k['TOTAL_y']+k['MOE'])&(k['TOTAL_x']>=k['TOTAL_y']-k['MOE'])])/len(k))
+print(np.sqrt(sum((k['TOTAL_x']-k['TOTAL_y'])**2)/len(k)))
 
 
 
 # Check PPAGE
-k=pd.read_csv(path+'POP/ppage.csv',dtype=float,converters={'CT':str})
+k=pd.read_csv(path+'ACS/ppage.csv',dtype=float,converters={'CT':str})
 k=k[np.isin(k['CT'],ct)].reset_index(drop=True)
 k=k.melt(id_vars=['CT'],value_vars=['AGE01','AGE01M','AGE02','AGE02M','AGE03','AGE03M','AGE04','AGE04M',
                                     'AGE05','AGE05M','AGE06','AGE06M','AGE07','AGE07M','AGE08','AGE08M',
@@ -523,12 +554,13 @@ fig=fig.add_trace(go.Scattergl(name='MODEL',
                                y=k['TOTAL_x'],
                                mode='lines'))
 fig.show()
-len(k[(k['TOTAL_x']<=k['TOTAL_y']+k['MOE'])&(k['TOTAL_x']>=k['TOTAL_y']-k['MOE'])])/len(k)
+print(len(k[(k['TOTAL_x']<=k['TOTAL_y']+k['MOE'])&(k['TOTAL_x']>=k['TOTAL_y']-k['MOE'])])/len(k))
+print(np.sqrt(sum((k['TOTAL_x']-k['TOTAL_y'])**2)/len(k)))
 
 
 
 # Check PPSCH
-k=pd.read_csv(path+'POP/ppsch.csv',dtype=float,converters={'CT':str})
+k=pd.read_csv(path+'ACS/ppsch.csv',dtype=float,converters={'CT':str})
 k=k[np.isin(k['CT'],ct)].reset_index(drop=True)
 k=k.melt(id_vars=['CT'],value_vars=['PR','PRM','KG','KGM','G14','G14M','G58','G58M','HS','HSM',
                                     'CL','CLM','GS','GSM'],var_name='PPSCH',value_name='TOTAL')
@@ -553,12 +585,13 @@ fig=fig.add_trace(go.Scattergl(name='MODEL',
                                y=k['TOTAL_x'],
                                mode='lines'))
 fig.show()
-len(k[(k['TOTAL_x']<=k['TOTAL_y']+k['MOE'])&(k['TOTAL_x']>=k['TOTAL_y']-k['MOE'])])/len(k)
+print(len(k[(k['TOTAL_x']<=k['TOTAL_y']+k['MOE'])&(k['TOTAL_x']>=k['TOTAL_y']-k['MOE'])])/len(k))
+print(np.sqrt(sum((k['TOTAL_x']-k['TOTAL_y'])**2)/len(k)))
 
 
 
 # Check PPMODE
-k=pd.read_csv(path+'POP/ppmode.csv',dtype=float,converters={'CT':str})
+k=pd.read_csv(path+'ACS/ppmode.csv',dtype=float,converters={'CT':str})
 k=k[np.isin(k['CT'],ct)].reset_index(drop=True)
 k=k.melt(id_vars=['CT'],value_vars=['DA','DAM','CP2','CP2M','CP3','CP3M','CP4','CP4M','CP56','CP56M',
                                     'CP7','CP7M','BS','BSM','SW','SWM','CR','CRM','LR','LRM',
@@ -587,7 +620,17 @@ fig=fig.add_trace(go.Scattergl(name='MODEL',
                                y=k['TOTAL_x'],
                                mode='lines'))
 fig.show()
-len(k[(k['TOTAL_x']<=k['TOTAL_y']+k['MOE'])&(k['TOTAL_x']>=k['TOTAL_y']-k['MOE'])])/len(k)
+print(len(k[(k['TOTAL_x']<=k['TOTAL_y']+k['MOE'])&(k['TOTAL_x']>=k['TOTAL_y']-k['MOE'])])/len(k))
+print(np.sqrt(sum((k['TOTAL_x']-k['TOTAL_y'])**2)/len(k)))
+
+
+
+
+
+
+
+
+
 
 
 
