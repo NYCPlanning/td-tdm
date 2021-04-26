@@ -20,6 +20,16 @@ bpmct=geoxwalk.loc[np.isin(geoxwalk['StateCounty'],bpm),'CensusTract2010'].uniqu
 
 
 
+
+dfpp=pd.read_csv(path+'POP/dfpp.csv',dtype=str,converters={'TOTAL':float},nrows=1)
+
+
+
+
+
+
+
+
 # IPF
 pumshh=pd.read_csv(path+'PUMS/pumshh.csv',dtype=str,converters={'WGTP':float})
 pumsppgq=pd.read_csv(path+'PUMS/pumsppgq.csv',dtype=str,converters={'PWGTP':float})
@@ -52,7 +62,7 @@ for i in bpmpuma:
     aggregates=[hhwt,cthhinc]
     dimensions=[['HHID'],['CT','HHINC']]
     tphh=ipfn.ipfn.ipfn(tphh,aggregates,dimensions,weight_col='TOTAL',max_iteration=1000000).iteration()
-    # tphh['TOTAL']=[round(x) for x in tphh['TOTAL']]
+    tphh['TOTAL']=[round(x) for x in tphh['TOTAL']]
     tphh.to_csv(path+'POP/tphh/'+i+'.csv',index=False)
  
     # Group Quarter
@@ -73,42 +83,28 @@ for i in bpmpuma:
     aggregates=[gqwt,gqtt]
     dimensions=[['HHID'],['CT']]
     tpgq=ipfn.ipfn.ipfn(tpgq,aggregates,dimensions,weight_col='TOTAL',max_iteration=1000000).iteration()
-    # tpgq['TOTAL']=[round(x) for x in tpgq['TOTAL']]
+    tpgq['TOTAL']=[round(x) for x in tpgq['TOTAL']]
     tpgq.to_csv(path+'POP/tpgq/'+i+'.csv',index=False)
 
 dfhh=[]
 for i in bpmpuma:
-    tphh=pd.read_csv(path+'POP/tphh/'+i+'.csv',dtype=str,converters={'TOTAL':float})
+    tphh=pd.read_csv(path+'POP/tphh/'+i+'.csv',dtype=str)
     dfhh+=[tphh]
 dfhh=pd.concat(dfhh,axis=0,ignore_index=True)
 dfhh=dfhh.loc[dfhh['TOTAL']!=0,['HHID','CT','HHINC','TOTAL']].reset_index(drop=True)
-dfhh['HHGQ']='HH'
 dfhh=dfhh.drop_duplicates(keep='first').reset_index(drop=True)
-dfhh=dfhh[['HHID','CT','HHGQ','HHINC','TOTAL']].reset_index(drop=True)
 dfhh.to_csv(path+'POP/dfhh.csv',index=False)
 
-dfhhgq=[]
+dfgq=[]
 for i in bpmpuma:
-    tpgq=pd.read_csv(path+'POP/tpgq/'+i+'.csv',dtype=str,converters={'TOTAL':float})
-    dfhhgq+=[tpgq]  
-dfhhgq=pd.concat(dfhhgq,axis=0,ignore_index=True)
-dfhhgq=dfhhgq.loc[dfhhgq['TOTAL']!=0,['HHID','CT','TOTAL']].reset_index(drop=True)
-dfhhgq['HHGQ']='GQ'
-dfhhgq=dfhhgq.drop_duplicates(keep='first').reset_index(drop=True)
-dfhhgq=dfhhgq[['HHID','CT','HHGQ','TOTAL']].reset_index(drop=True)
-dfhhgq.to_csv(path+'POP/dfhhgq.csv',index=False)
+    tpgq=pd.read_csv(path+'POP/tpgq/'+i+'.csv',dtype=str)
+    dfgq+=[tpgq]  
+dfgq=pd.concat(dfgq,axis=0,ignore_index=True)
+dfgq=dfgq.loc[dfgq['TOTAL']!=0,['HHID','CT','TOTAL']].reset_index(drop=True)
+dfgq=dfgq.drop_duplicates(keep='first').reset_index(drop=True)
+dfgq.to_csv(path+'POP/dfgq.csv',index=False)
 
-pumspp=pd.read_csv(path+'PUMS/pumspp.csv',dtype=str,converters={'PWGTP':float})
-dfpphh=pd.merge(pumspp,dfhh[['HHID','CT','HHGQ','TOTAL']],how='inner',on=['HHID'])
-dfpphh=pd.merge(dfpphh,pumshh,how='inner',on=['HHID','PUMA'])
-dfpphh=dfpphh[['PPID','HHID','PUMA','CT','HHGQ','HHSIZE','HHTYPE','HHINC','HHTEN','HHSTR','HHBLT',
-               'HHBED','HHVEH','PPSEX','PPAGE','PPSCH','PPMODE','TOTAL']].reset_index(drop=True)
-pumsppgq=pd.read_csv(path+'PUMS/pumsppgq.csv',dtype=str,converters={'PWGTP':float})
-dfppgq=pd.merge(pumsppgq,dfhhgq[['HHID','CT','HHGQ','TOTAL']],how='inner',on=['HHID'])
-dfppgq=dfppgq[['PPID','HHID','PUMA','CT','HHGQ','PPSEX','PPAGE','PPSCH','PPMODE','TOTAL']].reset_index(drop=True)
-dfpp=pd.concat([dfpphh,dfppgq],axis=0,ignore_index=True)
-dfpp=dfpp.fillna('GQ')
-dfpp.to_csv(path+'POP/dfpp.csv',index=False)
+
 
 
 
@@ -421,17 +417,17 @@ print(np.sqrt(sum((k['TOTAL_x']-k['TOTAL_y'])**2)/len(k)))
 # Check Group Quarter
 pumsppgq=pd.read_csv(path+'PUMS/pumsppgq.csv',dtype=str,converters={'PWGTP':float})
 pumsppgq=pumsppgq.groupby(['HHID'],as_index=False).agg({'PWGTP':'sum'}).reset_index(drop=True)
-dfhhgq=pd.read_csv(path+'POP/dfhhgq.csv',dtype=str,converters={'TOTAL':float})
+dfgq=pd.read_csv(path+'POP/dfgq.csv',dtype=str,converters={'TOTAL':float})
 
 # Check GQ Weight Sum
-k=pd.merge(dfhhgq.groupby(['HHID']).agg({'TOTAL':'sum'}),pumsppgq[['HHID','PWGTP']],how='inner',on='HHID')
+k=pd.merge(dfgq.groupby(['HHID']).agg({'TOTAL':'sum'}),pumsppgq[['HHID','PWGTP']],how='inner',on='HHID')
 p=px.scatter(k,x='TOTAL',y='PWGTP')
 p.show()
 
 # Check GQTT
 k=pd.read_csv(path+'ACS/gqtt.csv',dtype=float,converters={'CT':str})
 k.columns=['CT','TOTAL','MOE']
-k=pd.merge(dfhhgq.groupby(['CT'],as_index=False).agg({'TOTAL':'sum'}),k,how='inner',on=['CT'])
+k=pd.merge(dfgq.groupby(['CT'],as_index=False).agg({'TOTAL':'sum'}),k,how='inner',on=['CT'])
 k=k.sort_values('TOTAL_y').reset_index(drop=True)
 p=px.scatter(k,x='TOTAL_x',y='TOTAL_y')
 p.show()
@@ -454,11 +450,11 @@ print(np.sqrt(sum((k['TOTAL_x']-k['TOTAL_y'])**2)/len(k)))
 
 # Check Person
 pumspp=pd.read_csv(path+'PUMS/pumspp.csv',dtype=str,converters={'PWGTP':float})
-pumsppgq=pd.read_csv(path+'PUMS/pumsppgq.csv',dtype=str,converters={'PWGTP':float})
-dfpp=pd.read_csv(path+'POP/dfpp.csv',dtype=str,converters={'PWGTP':float,'TOTAL':float})
+dfpp=pd.concat([dfhh[['HHID','CT','TOTAL']],dfgq[['HHID','CT','TOTAL']]],axis=0,ignore_index=True)
+dfpp=pd.merge(pumspp,dfpp,how='inner',on=['HHID'])
 
 # Check PPID Weight Sum
-k=pd.merge(dfpp.groupby(['PPID']).agg({'TOTAL':'sum'}),pd.concat([pumspp[['PPID','PWGTP']],pumsppgq[['PPID','PWGTP']]]),how='inner',on='PPID')
+k=pd.merge(dfpp.groupby(['PPID']).agg({'TOTAL':'sum'}),pumspp[['PPID','PWGTP']],how='inner',on='PPID')
 p=px.scatter(k,x='TOTAL',y='PWGTP')
 p.show()
 

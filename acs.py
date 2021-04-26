@@ -377,6 +377,42 @@ df.to_csv(path+'ACS/ppmode.csv',index=False)
 
 
 
+# Travel Time
+pptt=pd.read_csv(path+'ACS/pptt.csv',dtype=str)
+df=[]
+for i in bpm:
+    rs=requests.get('https://api.census.gov/data/2019/acs/acs5/?get=NAME,group(B08301)&for=tract:*&in=state:'+i[:2]+' county:'+i[2:]+'&key='+apikey).json()
+    rs=pd.DataFrame(rs)
+    rs.columns=rs.loc[0]
+    rs=rs.loc[1:].reset_index(drop=True)
+    rs['geoid']=[x[9:] for x in rs['GEO_ID']]
+    rs=rs[['geoid','B08301_001E','B08301_001M','B08301_003E','B08301_003M',
+           'B08301_005E','B08301_005M','B08301_006E','B08301_006M',
+           'B08301_007E','B08301_007M','B08301_008E','B08301_008M',
+           'B08301_009E','B08301_009M','B08301_011E','B08301_011M',
+           'B08301_012E','B08301_012M','B08301_013E','B08301_013M',
+           'B08301_014E','B08301_014M','B08301_015E','B08301_015M',
+           'B08301_016E','B08301_016M','B08301_017E','B08301_017M',
+           'B08301_018E','B08301_018M','B08301_019E','B08301_019M',
+           'B08301_020E','B08301_020M','B08301_021E','B08301_021M']].reset_index(drop=True)
+    rs.columns=['CT','TW','TWM','DA','DAM','CP2','CP2M','CP3','CP3M','CP4','CP4M','CP56','CP56M',
+                'CP7','CP7M','BS','BSM','SW','SWM','CR','CRM','LR','LRM','FB','FBM','TC','TCM',
+                'MC','MCM','BC','BCM','WK','WKM','OT','OTM','HM','HMM']
+    df+=[rs]
+df=pd.concat(df,axis=0,ignore_index=True)
+df=pd.merge(pptt,df,how='left',on='CT')
+df=df.fillna(0)
+df['TT']=pd.to_numeric(df['TT'])
+df['TTM']=pd.to_numeric(df['TTM'])
+df['TW']=pd.to_numeric(df['TW'])
+df['TWM']=pd.to_numeric(df['TWM'])
+df['NW']=df['TT']-df['TW']
+df['NWM']=np.sqrt(df['TTM']**2+df['TWM']**2)
+df=df[['CT','TT','TTM','NW','NWM','DA','DAM','CP2','CP2M','CP3','CP3M','CP4','CP4M','CP56','CP56M',
+       'CP7','CP7M','BS','BSM','SW','SWM','CR','CRM','LR','LRM','FB','FBM','TC','TCM','MC','MCM',
+       'BC','BCM','WK','WKM','OT','OTM','HM','HMM']].reset_index(drop=True)
+df.to_csv(path+'ACS/ppmode.csv',index=False)
+
 
 
 

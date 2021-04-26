@@ -19,6 +19,8 @@ df=pd.read_csv('C:/Users/mayij/Desktop/DOC/DCP2020/COVID19/SUBWAY/TURNSTILE/OUTP
 df=df.groupby(['unit','firstdate'],as_index=False).agg({'entries':'sum'}).reset_index(drop=True)
 df['wkd']=[datetime.datetime.strptime(x,'%m/%d/%Y').weekday() for x in df['firstdate']]
 df=df[np.isin(df['wkd'],[0,1,2,3,4])].reset_index(drop=True)
+df['year']=[x[6:] for x in df['firstdate']]
+df=df[df['year']=='2019'].reset_index(drop=True)
 df=df.groupby(['unit'],as_index=False).agg({'entries':'mean'}).reset_index(drop=True)
 df.columns=['Remote','Entries']
 df=pd.merge(df,rc,how='left',on='Remote')

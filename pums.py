@@ -26,7 +26,6 @@ pumshhgq=pumshh.loc[pumshh['TYPE']!='1',['HHID','PUMA']].reset_index(drop=True)
 pumshhgq=pumshhgq.drop_duplicates(keep='first').reset_index(drop=True)
 pumshhgq.to_csv(path+'PUMS/pumshhgq.csv',index=False)
 pumshh=pumshh[pumshh['TYPE']=='1'].reset_index(drop=True)
-pumshh=pumshh[pumshh['WGTP']!='0'].reset_index(drop=True)
 pumshh['HHSIZE']=np.where(pumshh['NP']=='0','VAC',
                  np.where(pumshh['NP']=='1','SIZE1',
                  np.where(pumshh['NP']=='2','SIZE2',
@@ -106,12 +105,6 @@ pumspp['HHID']=pumspp['SERIALNO'].copy()
 pumspp['PUMA']=pumspp['ST']+pumspp['PUMA']
 pumspp=pd.merge(pumspp,geoxwalk[['PUMA2010','StateCounty']].drop_duplicates(keep='first'),how='left',left_on='PUMA',right_on='PUMA2010')
 pumspp=pumspp[np.isin(pumspp['StateCounty'],bpm)].reset_index(drop=True)
-pumsppgq=pumspp[np.isin(pumspp['RELSHIPP'],['37','38'])].reset_index(drop=True)
-pumsppgq=pumsppgq[['PPID','HHID','PUMA','PWGTP']].reset_index(drop=True)
-pumsppgq=pumsppgq.drop_duplicates(keep='first').reset_index(drop=True)
-pumsppgq.to_csv(path+'PUMS/pumsppgq.csv',index=False)
-pumspp=pumspp[~np.isin(pumspp['RELSHIPP'],['37','38'])].reset_index(drop=True)
-pumspp=pumspp[pumspp['PWGTP']!='0'].reset_index(drop=True)
 pumspp['PPSEX']=np.where(pumspp['SEX']=='1','MALE','FEMALE')
 pumspp['PPAGE']=pd.to_numeric(pumspp['AGEP'])
 pumspp['PPAGE']=np.where(pumspp['PPAGE']<=5,'AGE01',
@@ -168,6 +161,11 @@ pumspp['PPMODE']=np.where((pumspp['JWTRNS']=='01')&(pumspp['JWRIP']=='1'),'DA',
                  np.where(pumspp['JWTRNS']=='10','WK',
                  np.where(pumspp['JWTRNS']=='11','HM',
                  np.where(pumspp['JWTRNS']=='12','OT','NW')))))))))))))))))))))
+pumsppgq=pumspp[np.isin(pumspp['RELSHIPP'],['37','38'])].reset_index(drop=True)
+pumsppgq=pumsppgq[['PPID','HHID','PUMA','PWGTP','PPSEX','PPAGE','PPSCH','PPMODE']].reset_index(drop=True)
+pumsppgq=pumsppgq.drop_duplicates(keep='first').reset_index(drop=True)
+pumsppgq.to_csv(path+'PUMS/pumsppgq.csv',index=False)
+pumspp=pumspp[~np.isin(pumspp['RELSHIPP'],['37','38'])].reset_index(drop=True)
 pumspp=pumspp[['PPID','HHID','PUMA','PWGTP','PPSEX','PPAGE','PPSCH','PPMODE']].reset_index(drop=True)
 pumspp=pumspp.drop_duplicates(keep='first').reset_index(drop=True)
 pumspp.to_csv(path+'PUMS/pumspp.csv',index=False)
