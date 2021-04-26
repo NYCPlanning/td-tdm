@@ -7,78 +7,92 @@ import plotly.graph_objects as go
 import plotly.express as px
 import plotly.io as pio
 
-
-
 pd.set_option('display.max_columns', None)
 path='C:/Users/mayij/Desktop/DOC/DCP2021/TRAVEL DEMAND MODEL/'
 pio.renderers.default='browser'
 
-
-
-# New Method (Assign PUMS to CT)
 bpm=['36005','36047','36061','36081','36085','36059','36103','36119','36087','36079','36071','36027',
      '09001','09009','34017','34003','34031','34013','34039','34027','34035','34023','34025','34029',
      '34037','34041','34019','34021']
 geoxwalk=pd.read_csv(path+'POP/GEOIDCROSSWALK.csv',dtype=str)
+bpmpuma=geoxwalk.loc[np.isin(geoxwalk['StateCounty'],bpm),'PUMA2010'].unique()
+bpmct=geoxwalk.loc[np.isin(geoxwalk['StateCounty'],bpm),'CensusTract2010'].unique()
 
 
 
 # IPF
-i='3603805'
-ct=geoxwalk.loc[geoxwalk['PUMA2010']==i,'CensusTract2010'].unique()
+pumshh=pd.read_csv(path+'PUMS/pumshh.csv',dtype=str,converters={'WGTP':float})
+pumsppgq=pd.read_csv(path+'PUMS/pumsppgq.csv',dtype=str,converters={'PWGTP':float})
+pumsppgq=pumsppgq.groupby(['HHID','PUMA'],as_index=False).agg({'PWGTP':'sum'}).reset_index(drop=True)
+# i='3603101' 127
+# i='3603903' 142
+for i in bpmpuma:
+    ct=geoxwalk.loc[geoxwalk['PUMA2010']==i,'CensusTract2010'].unique()
+    # ct=ct[ct!='36085008900']
+    
+    # Households
+    tphh=pumshh[pumshh['PUMA']==i].reset_index(drop=True)
+    tphh=pd.DataFrame(ipfn.ipfn.product(tphh['HHID'].unique(),ct),columns=['HHID','CT'])
+    tphh=pd.merge(tphh,pumshh[['HHID','HHINC']],how='left',on='HHID')
+    tphh['TOTAL']=1
+    
+    hhwt=pumshh[['HHID','WGTP']].reset_index(drop=True)
+    hhwt['WGTP']=pd.to_numeric(hhwt['WGTP'])
+    hhwt=hhwt.set_index(['HHID'])
+    hhwt=hhwt.iloc[:,0]
+    
+    cthhinc=pd.read_csv(path+'ACS/hhinc.csv',dtype=float,converters={'CT':str})
+    cthhinc=cthhinc.loc[np.isin(cthhinc['CT'],ct),['CT','VAC','INC01','INC02','INC03','INC04','INC05',
+                                                   'INC06','INC07','INC08','INC09','INC10','INC11']].reset_index(drop=True)
+    cthhinc=cthhinc.melt(id_vars=['CT'],value_vars=['VAC','INC01','INC02','INC03','INC04','INC05','INC06',
+                                                    'INC07','INC08','INC09','INC10','INC11'],var_name='HHINC',value_name='TOTAL')
+    cthhinc=cthhinc.set_index(['CT','HHINC'])
+    cthhinc=cthhinc.iloc[:,0]
+    
+    aggregates=[hhwt,cthhinc]
+    dimensions=[['HHID'],['CT','HHINC']]
+    tphh=ipfn.ipfn.ipfn(tphh,aggregates,dimensions,weight_col='TOTAL',max_iteration=1000000).iteration()
+    tphh['TOTAL']=[round(x) for x in tphh['TOTAL']]
+    tphh.to_csv(path+'POP/tphh/'+i+'.csv',index=False)
+ 
+    # Group Quarter
+    tpgq=pumsppgq[pumsppgq['PUMA']==i].reset_index(drop=True)
+    tpgq=pd.DataFrame(ipfn.ipfn.product(tpgq['HHID'].unique(),ct),columns=['HHID','CT'])
+    tpgq['TOTAL']=1
+    
+    gqwt=pumsppgq[['HHID','PWGTP']].reset_index(drop=True)
+    gqwt['PWGTP']=pd.to_numeric(gqwt['PWGTP'])
+    gqwt=gqwt.set_index(['HHID'])
+    gqwt=gqwt.iloc[:,0]
+    
+    gqtt=pd.read_csv(path+'ACS/gqtt.csv',dtype=float,converters={'CT':str})
+    gqtt=gqtt.loc[np.isin(gqtt['CT'],ct),['CT','GQTT']].reset_index(drop=True)
+    gqtt=gqtt.set_index(['CT'])
+    gqtt=gqtt.iloc[:,0]
+    
+    aggregates=[gqwt,gqtt]
+    dimensions=[['HHID'],['CT']]
+    tpgq=ipfn.ipfn.ipfn(tpgq,aggregates,dimensions,weight_col='TOTAL',max_iteration=1000000).iteration()
+    tpgq['TOTAL']=[round(x) for x in tpgq['TOTAL']]
+    tpgq.to_csv(path+'POP/tpgq/'+i+'.csv',index=False)
 
-# Households
-pumshh=pd.read_csv(path+'PUMS/pumshh.csv',dtype=str)
-pumshh=pumshh[pumshh['PUMA']==i].reset_index(drop=True)
+dfhh=[]
+for i in bpmpuma:
+    tphh=pd.read_csv(path+'POP/tphh/'+i+'.csv',dtype=str)
+    dfhh+=[tphh]
+dfhh=pd.concat(dfhh,axis=0,ignore_index=True)
+dfhh=dfhh.loc[dfhh['TOTAL']!=0,['HHID','CT','HHINC','TOTAL']].reset_index(drop=True)
+dfhh=dfhh.drop_duplicates(keep='first').reset_index(drop=True)
+dfhh.to_csv(path+'POP/dfhh.csv',index=False)
 
-tphh=pd.DataFrame(ipfn.ipfn.product(pumshh['HHID'].unique(),ct),columns=['HHID','CT'])
-tphh=pd.merge(tphh,pumshh[['HHID','HHINC']],how='left',on='HHID')
-tphh['TOTAL']=1
-
-hhwt=pumshh[['HHID','WGTP']].reset_index(drop=True)
-hhwt['WGTP']=pd.to_numeric(hhwt['WGTP'])
-hhwt=hhwt.set_index(['HHID'])
-hhwt=hhwt.iloc[:,0]
-
-cthhinc=pd.read_csv(path+'ACS/hhinc.csv',dtype=float,converters={'CT':str})
-cthhinc=cthhinc.loc[np.isin(cthhinc['CT'],ct),['CT','VAC','INC01','INC02','INC03','INC04','INC05',
-                                               'INC06','INC07','INC08','INC09','INC10','INC11']].reset_index(drop=True)
-cthhinc=cthhinc.melt(id_vars=['CT'],value_vars=['VAC','INC01','INC02','INC03','INC04','INC05','INC06',
-                                                'INC07','INC08','INC09','INC10','INC11'],var_name='HHINC',value_name='TOTAL')
-cthhinc=cthhinc.set_index(['CT','HHINC'])
-cthhinc=cthhinc.iloc[:,0]
-
-aggregates=[hhwt,cthhinc]
-dimensions=[['HHID'],['CT','HHINC']]
-
-tphh=ipfn.ipfn.ipfn(tphh,aggregates,dimensions,weight_col='TOTAL',max_iteration=1000000).iteration()
-tphh['TOTAL']=[round(x) for x in tphh['TOTAL']]
-
-
-
-# Group Quarter
-pumsppgq=pd.read_csv(path+'PUMS/pumsppgq.csv',dtype=str)
-pumsppgq=pumsppgq[pumsppgq['PUMA']==i].reset_index(drop=True)
-pumsppgq=pumsppgq.groupby(['HHID'],as_index=False).agg({'PWGTP':'sum'}).reset_index(drop=True)
-
-tpgq=pd.DataFrame(ipfn.ipfn.product(pumsppgq['HHID'].unique(),ct),columns=['HHID','CT'])
-tpgq['TOTAL']=1
-
-gqwt=pumsppgq[['HHID','PWGTP']].reset_index(drop=True)
-gqwt['PWGTP']=pd.to_numeric(gqwt['PWGTP'])
-gqwt=gqwt.set_index(['HHID'])
-gqwt=gqwt.iloc[:,0]
-
-gqtt=pd.read_csv(path+'ACS/gqtt.csv',dtype=float,converters={'CT':str})
-gqtt=gqtt.loc[np.isin(gqtt['CT'],ct),['CT','GQTT']].reset_index(drop=True)
-gqtt=gqtt.set_index(['CT'])
-gqtt=gqtt.iloc[:,0]
-
-aggregates=[gqwt,gqtt]
-dimensions=[['HHID'],['CT']]
-
-tpgq=ipfn.ipfn.ipfn(tpgq,aggregates,dimensions,weight_col='TOTAL',max_iteration=1000000).iteration()
-tpgq['TOTAL']=[round(x) for x in tpgq['TOTAL']]
+dfgq=[]
+for i in bpmpuma:
+    tpgq=pd.read_csv(path+'POP/tpgq/'+i+'.csv',dtype=str)
+    dfgq+=[tpgq]  
+dfgq=pd.concat(dfgq,axis=0,ignore_index=True)
+dfgq=dfgq.loc[dfgq['TOTAL']!=0,['HHID','CT','TOTAL']].reset_index(drop=True)
+dfgq=dfgq.drop_duplicates(keep='first').reset_index(drop=True)
+dfgq.to_csv(path+'POP/dfgq.csv',index=False)
 
 
 
@@ -86,18 +100,18 @@ tpgq['TOTAL']=[round(x) for x in tpgq['TOTAL']]
 
 # Validation
 # Check Household
+pumshh=pd.read_csv(path+'PUMS/pumshh.csv',dtype=str,converters={'WGTP':float})
+dfhh=pd.read_csv(path+'POP/dfhh.csv',dtype=str,converters={'TOTAL':float})
+
 # Check HHID Weight Sum
-k=pd.merge(tphh.groupby(['HHID'],as_index=False).agg({'TOTAL':'sum'}),hhwt,how='inner',on='HHID')
+k=pd.merge(dfhh.groupby(['HHID']).agg({'TOTAL':'sum'}),pumshh[['HHID','WGTP']],how='inner',on='HHID')
 p=px.scatter(k,x='TOTAL',y='WGTP')
 p.show()
 
-
-
 # Check HHTT
 k=pd.read_csv(path+'ACS/hhtt.csv',dtype=float,converters={'CT':str})
-k=k[np.isin(k['CT'],ct)].reset_index(drop=True)
 k.columns=['CT','TOTAL','MOE']
-k=pd.merge(tphh.groupby(['CT'],as_index=False).agg({'TOTAL':'sum'}),k,how='inner',on=['CT'])
+k=pd.merge(dfhh.groupby(['CT'],as_index=False).agg({'TOTAL':'sum'}),k,how='inner',on=['CT'])
 k=k.sort_values('TOTAL_y').reset_index(drop=True)
 p=px.scatter(k,x='TOTAL_x',y='TOTAL_y')
 p.show()
@@ -116,13 +130,10 @@ fig.show()
 print(len(k[(k['TOTAL_x']<=k['TOTAL_y']+k['MOE'])&(k['TOTAL_x']>=k['TOTAL_y']-k['MOE'])])/len(k))
 print(np.sqrt(sum((k['TOTAL_x']-k['TOTAL_y'])**2)/len(k)))
 
-
-
 # Check HHOCC
-tptest=tphh.copy()
+tptest=dfhh.copy()
 tptest['HHOCC']=np.where(tptest['HHINC']=='VAC','VAC','OCC')
 k=pd.read_csv(path+'ACS/hhocc.csv',dtype=float,converters={'CT':str})
-k=k[np.isin(k['CT'],ct)].reset_index(drop=True)
 k=k.melt(id_vars=['CT'],value_vars=['VAC','VACM','OCC','OCCM'],var_name='HHOCC',value_name='TOTAL')
 k=pd.merge(k[np.isin(k['HHOCC'],['VAC','OCC'])],
            k[np.isin(k['HHOCC'],['VACM','OCCM'])],how='inner',on='CT')
@@ -148,12 +159,9 @@ fig.show()
 print(len(k[(k['TOTAL_x']<=k['TOTAL_y']+k['MOE'])&(k['TOTAL_x']>=k['TOTAL_y']-k['MOE'])])/len(k))
 print(np.sqrt(sum((k['TOTAL_x']-k['TOTAL_y'])**2)/len(k)))
 
-
-
 # Check HHSIZE
-tptest=pd.merge(tphh,pumshh[['HHID','HHSIZE']],how='inner',on='HHID')
+tptest=pd.merge(dfhh,pumshh[['HHID','HHSIZE']],how='inner',on='HHID')
 k=pd.read_csv(path+'ACS/hhsize.csv',dtype=float,converters={'CT':str})
-k=k[np.isin(k['CT'],ct)].reset_index(drop=True)
 k=k.melt(id_vars=['CT'],value_vars=['VAC','VACM','SIZE1','SIZE1M','SIZE2','SIZE2M','SIZE3','SIZE3M',
                                     'SIZE4','SIZE4M'],var_name='HHSIZE',value_name='TOTAL')
 k=pd.merge(k[np.isin(k['HHSIZE'],['VAC','SIZE1','SIZE2','SIZE3','SIZE4'])],
@@ -180,12 +188,9 @@ fig.show()
 print(len(k[(k['TOTAL_x']<=k['TOTAL_y']+k['MOE'])&(k['TOTAL_x']>=k['TOTAL_y']-k['MOE'])])/len(k))
 print(np.sqrt(sum((k['TOTAL_x']-k['TOTAL_y'])**2)/len(k)))
 
-
-
 # Check HHTYPE
-tptest=pd.merge(tphh,pumshh[['HHID','HHTYPE']],how='inner',on='HHID')
+tptest=pd.merge(dfhh,pumshh[['HHID','HHTYPE']],how='inner',on='HHID')
 k=pd.read_csv(path+'ACS/hhtype.csv',dtype=float,converters={'CT':str})
-k=k[np.isin(k['CT'],ct)].reset_index(drop=True)
 k['TYPE1']=k['MC']-k['MCC']+k['CC']-k['CCC']
 k['TYPE1M']=np.sqrt(k['MCM']**2+k['MCCM']**2+k['CCM']**2+k['CCCM']**2)
 k['TYPE2']=k['MCC']+k['CCC']
@@ -222,12 +227,8 @@ fig.show()
 print(len(k[(k['TOTAL_x']<=k['TOTAL_y']+k['MOE'])&(k['TOTAL_x']>=k['TOTAL_y']-k['MOE'])])/len(k))
 print(np.sqrt(sum((k['TOTAL_x']-k['TOTAL_y'])**2)/len(k)))
 
-
-
 # Check HHINC
-# tptest=pd.merge(tp,pumshh[['HHID','HHINC']],how='inner',on='HHID')
 k=pd.read_csv(path+'ACS/hhinc.csv',dtype=float,converters={'CT':str})
-k=k[np.isin(k['CT'],ct)].reset_index(drop=True)
 k=k.melt(id_vars=['CT'],value_vars=['VAC','VACM','INC01','INC01M','INC02','INC02M','INC03','INC03M',
                                     'INC04','INC04M','INC05','INC05M','INC06','INC06M','INC07','INC07M',
                                     'INC08','INC08M','INC09','INC09M','INC10','INC10M',
@@ -237,7 +238,7 @@ k=pd.merge(k[np.isin(k['HHINC'],['VAC','INC01','INC02','INC03','INC04','INC05','
 k=k[(k['HHINC_x']+'M')==k['HHINC_y']].reset_index(drop=True)
 k=k[['CT','HHINC_x','TOTAL_x','TOTAL_y']].reset_index(drop=True)
 k.columns=['CT','HHINC','TOTAL','MOE']
-k=pd.merge(tphh.groupby(['CT','HHINC'],as_index=False).agg({'TOTAL':'sum'}),k,how='inner',on=['CT','HHINC'])
+k=pd.merge(dfhh.groupby(['CT','HHINC'],as_index=False).agg({'TOTAL':'sum'}),k,how='inner',on=['CT','HHINC'])
 k=k.sort_values('TOTAL_y').reset_index(drop=True)
 p=px.scatter(k,x='TOTAL_x',y='TOTAL_y')
 p.show()
@@ -256,12 +257,9 @@ fig.show()
 print(len(k[(k['TOTAL_x']<=k['TOTAL_y']+k['MOE'])&(k['TOTAL_x']>=k['TOTAL_y']-k['MOE'])])/len(k))
 print(np.sqrt(sum((k['TOTAL_x']-k['TOTAL_y'])**2)/len(k)))
 
-
-
 # Check HHTEN
-tptest=pd.merge(tphh,pumshh[['HHID','HHTEN']],how='inner',on='HHID')
+tptest=pd.merge(dfhh,pumshh[['HHID','HHTEN']],how='inner',on='HHID')
 k=pd.read_csv(path+'ACS/hhten.csv',dtype=float,converters={'CT':str})
-k=k[np.isin(k['CT'],ct)].reset_index(drop=True)
 k=k.melt(id_vars=['CT'],value_vars=['VAC','VACM','OWNER','OWNERM','RENTER','RENTERM'],var_name='HHTEN',value_name='TOTAL')
 k=pd.merge(k[np.isin(k['HHTEN'],['VAC','OWNER','RENTER'])],
            k[np.isin(k['HHTEN'],['VACM','OWNERM','RENTERM'])],how='inner',on='CT')
@@ -287,12 +285,9 @@ fig.show()
 print(len(k[(k['TOTAL_x']<=k['TOTAL_y']+k['MOE'])&(k['TOTAL_x']>=k['TOTAL_y']-k['MOE'])])/len(k))
 print(np.sqrt(sum((k['TOTAL_x']-k['TOTAL_y'])**2)/len(k)))
 
-
-
 # Check HHSTR
-tptest=pd.merge(tphh,pumshh[['HHID','HHSTR']],how='inner',on='HHID')
+tptest=pd.merge(dfhh,pumshh[['HHID','HHSTR']],how='inner',on='HHID')
 k=pd.read_csv(path+'ACS/hhstr.csv',dtype=float,converters={'CT':str})
-k=k[np.isin(k['CT'],ct)].reset_index(drop=True)
 k=k.melt(id_vars=['CT'],value_vars=['VAC','VACM','STR1D','STR1DM','STR1A','STR1AM','STR2','STR2M',
                                     'STR34','STR34M','STR59','STR59M','STR10','STR10M',
                                     'STRO','STROM'],var_name='HHSTR',value_name='TOTAL')
@@ -320,12 +315,9 @@ fig.show()
 print(len(k[(k['TOTAL_x']<=k['TOTAL_y']+k['MOE'])&(k['TOTAL_x']>=k['TOTAL_y']-k['MOE'])])/len(k))
 print(np.sqrt(sum((k['TOTAL_x']-k['TOTAL_y'])**2)/len(k)))
 
-
-
 # Check HHBLT
-tptest=pd.merge(tphh,pumshh[['HHID','HHBLT']],how='inner',on='HHID')
+tptest=pd.merge(dfhh,pumshh[['HHID','HHBLT']],how='inner',on='HHID')
 k=pd.read_csv(path+'ACS/hhblt.csv',dtype=float,converters={'CT':str})
-k=k[np.isin(k['CT'],ct)].reset_index(drop=True)
 k=k.melt(id_vars=['CT'],value_vars=['B14','B14M','B10','B10M','B00','B00M','B90','B90M','B80','B80M',
                                     'B70','B70M','B60','B60M','B50','B50M','B40','B40M','B39','B39M'],var_name='HHBLT',value_name='TOTAL')
 k=pd.merge(k[np.isin(k['HHBLT'],['B14','B10','B00','B90','B80','B70','B60','B50','B40','B39'])],
@@ -352,12 +344,9 @@ fig.show()
 print(len(k[(k['TOTAL_x']<=k['TOTAL_y']+k['MOE'])&(k['TOTAL_x']>=k['TOTAL_y']-k['MOE'])])/len(k))
 print(np.sqrt(sum((k['TOTAL_x']-k['TOTAL_y'])**2)/len(k)))
 
-
-
 # Check HHBED
-tptest=pd.merge(tphh,pumshh[['HHID','HHBED']],how='inner',on='HHID')
+tptest=pd.merge(dfhh,pumshh[['HHID','HHBED']],how='inner',on='HHID')
 k=pd.read_csv(path+'ACS/hhbed.csv',dtype=float,converters={'CT':str})
-k=k[np.isin(k['CT'],ct)].reset_index(drop=True)
 k=k.melt(id_vars=['CT'],value_vars=['BED0','BED0M','BED1','BED1M','BED2','BED2M','BED3','BED3M',
                                     'BED4','BED4M','BED5','BED5M'],var_name='HHBED',value_name='TOTAL')
 k=pd.merge(k[np.isin(k['HHBED'],['BED0','BED1','BED2','BED3','BED4','BED5'])],
@@ -384,12 +373,9 @@ fig.show()
 print(len(k[(k['TOTAL_x']<=k['TOTAL_y']+k['MOE'])&(k['TOTAL_x']>=k['TOTAL_y']-k['MOE'])])/len(k))
 print(np.sqrt(sum((k['TOTAL_x']-k['TOTAL_y'])**2)/len(k)))
 
-
-
 # Check HHVEH
-tptest=pd.merge(tphh,pumshh[['HHID','HHVEH']],how='inner',on='HHID')
+tptest=pd.merge(dfhh,pumshh[['HHID','HHVEH']],how='inner',on='HHID')
 k=pd.read_csv(path+'ACS/hhveh.csv',dtype=float,converters={'CT':str})
-k=k[np.isin(k['CT'],ct)].reset_index(drop=True)
 k=k.melt(id_vars=['CT'],value_vars=['VAC','VACM','VEH0','VEH0M','VEH1','VEH1M','VEH2','VEH2M',
                                     'VEH3','VEH3M','VEH4','VEH4M'],var_name='HHVEH',value_name='TOTAL')
 k=pd.merge(k[np.isin(k['HHVEH'],['VAC','VEH0','VEH1','VEH2','VEH3','VEH4'])],
@@ -419,18 +405,19 @@ print(np.sqrt(sum((k['TOTAL_x']-k['TOTAL_y'])**2)/len(k)))
 
 
 # Check Group Quarter
+pumsppgq=pd.read_csv(path+'PUMS/pumsppgq.csv',dtype=str,converters={'PWGTP':float})
+pumsppgq=pumsppgq.groupby(['HHID'],as_index=False).agg({'PWGTP':'sum'}).reset_index(drop=True)
+dfgq=pd.read_csv(path+'POP/dfgq.csv',dtype=str,converters={'TOTAL':float})
+
 # Check GQ Weight Sum
-k=pd.merge(tpgq.groupby(['HHID'],as_index=False).agg({'TOTAL':'sum'}),gqwt,how='inner',on='HHID')
+k=pd.merge(dfgq.groupby(['HHID']).agg({'TOTAL':'sum'}),pumsppgq[['HHID','PWGTP']],how='inner',on='HHID')
 p=px.scatter(k,x='TOTAL',y='PWGTP')
 p.show()
 
-
-
 # Check GQTT
 k=pd.read_csv(path+'ACS/gqtt.csv',dtype=float,converters={'CT':str})
-k=k[np.isin(k['CT'],ct)].reset_index(drop=True)
 k.columns=['CT','TOTAL','MOE']
-k=pd.merge(tpgq.groupby(['CT'],as_index=False).agg({'TOTAL':'sum'}),k,how='inner',on=['CT'])
+k=pd.merge(dfgq.groupby(['CT'],as_index=False).agg({'TOTAL':'sum'}),k,how='inner',on=['CT'])
 k=k.sort_values('TOTAL_y').reset_index(drop=True)
 p=px.scatter(k,x='TOTAL_x',y='TOTAL_y')
 p.show()
@@ -452,25 +439,19 @@ print(np.sqrt(sum((k['TOTAL_x']-k['TOTAL_y'])**2)/len(k)))
 
 
 # Check Person
-pumspp=pd.read_csv(path+'PUMS/pumspp.csv',dtype=str)
-pumspp=pumspp[pumspp['PUMA']==i].reset_index(drop=True)
-tppp=pd.merge(pumspp,tphh[['HHID','CT','TOTAL']].reset_index(drop=True),how='inner',on=['HHID'])
-tppp=tppp[tppp['TOTAL']!=0].reset_index(drop=True)
-
-
+pumspp=pd.read_csv(path+'PUMS/pumspp.csv',dtype=str,converters={'PWGTP':float})
+dfpp=pd.concat([dfhh[['HHID','CT','TOTAL']],dfgq[['HHID','CT','TOTAL']]],axis=0,ignore_index=True)
+dfpp=pd.merge(pumspp,dfpp,how='inner',on=['HHID'])
 
 # Check PPID Weight Sum
-k=pd.merge(tppp.groupby(['PPID'],as_index=False).agg({'TOTAL':'sum'}),pumspp,how='inner',on='PPID')
+k=pd.merge(dfpp.groupby(['PPID']).agg({'TOTAL':'sum'}),pumspp[['PPID','PWGTP']],how='inner',on='PPID')
 p=px.scatter(k,x='TOTAL',y='PWGTP')
 p.show()
 
-
-
 # Check PPTT
 k=pd.read_csv(path+'ACS/pptt.csv',dtype=float,converters={'CT':str})
-k=k[np.isin(k['CT'],ct)].reset_index(drop=True)
 k.columns=['CT','TOTAL','MOE']
-k=pd.merge(tppp.groupby(['CT'],as_index=False).agg({'TOTAL':'sum'}),k,how='inner',on=['CT'])
+k=pd.merge(dfpp.groupby(['CT'],as_index=False).agg({'TOTAL':'sum'}),k,how='inner',on=['CT'])
 k=k.sort_values('TOTAL_y').reset_index(drop=True)
 p=px.scatter(k,x='TOTAL_x',y='TOTAL_y')
 p.show()
@@ -489,18 +470,15 @@ fig.show()
 print(len(k[(k['TOTAL_x']<=k['TOTAL_y']+k['MOE'])&(k['TOTAL_x']>=k['TOTAL_y']-k['MOE'])])/len(k))
 print(np.sqrt(sum((k['TOTAL_x']-k['TOTAL_y'])**2)/len(k)))
 
-
-
 # Check PPSEX
 k=pd.read_csv(path+'ACS/ppsex.csv',dtype=float,converters={'CT':str})
-k=k[np.isin(k['CT'],ct)].reset_index(drop=True)
 k=k.melt(id_vars=['CT'],value_vars=['MALE','MALEM','FEMALE','FEMALEM'],var_name='PPSEX',value_name='TOTAL')
 k=pd.merge(k[np.isin(k['PPSEX'],['MALE','FEMALE'])],
            k[np.isin(k['PPSEX'],['MALEM','FEMALEM'])],how='inner',on='CT')
 k=k[(k['PPSEX_x']+'M')==k['PPSEX_y']].reset_index(drop=True)
 k=k[['CT','PPSEX_x','TOTAL_x','TOTAL_y']].reset_index(drop=True)
 k.columns=['CT','PPSEX','TOTAL','MOE']
-k=pd.merge(tppp.groupby(['CT','PPSEX'],as_index=False).agg({'TOTAL':'sum'}),k,how='inner',on=['CT','PPSEX'])
+k=pd.merge(dfpp.groupby(['CT','PPSEX'],as_index=False).agg({'TOTAL':'sum'}),k,how='inner',on=['CT','PPSEX'])
 k=k.sort_values('TOTAL_y').reset_index(drop=True)
 p=px.scatter(k,x='TOTAL_x',y='TOTAL_y')
 p.show()
@@ -519,11 +497,8 @@ fig.show()
 print(len(k[(k['TOTAL_x']<=k['TOTAL_y']+k['MOE'])&(k['TOTAL_x']>=k['TOTAL_y']-k['MOE'])])/len(k))
 print(np.sqrt(sum((k['TOTAL_x']-k['TOTAL_y'])**2)/len(k)))
 
-
-
 # Check PPAGE
 k=pd.read_csv(path+'ACS/ppage.csv',dtype=float,converters={'CT':str})
-k=k[np.isin(k['CT'],ct)].reset_index(drop=True)
 k=k.melt(id_vars=['CT'],value_vars=['AGE01','AGE01M','AGE02','AGE02M','AGE03','AGE03M','AGE04','AGE04M',
                                     'AGE05','AGE05M','AGE06','AGE06M','AGE07','AGE07M','AGE08','AGE08M',
                                     'AGE09','AGE09M','AGE10','AGE10M','AGE11','AGE11M','AGE12','AGE12M',
@@ -538,7 +513,7 @@ k=pd.merge(k[np.isin(k['PPAGE'],['AGE01','AGE02','AGE03','AGE04','AGE05','AGE06'
 k=k[(k['PPAGE_x']+'M')==k['PPAGE_y']].reset_index(drop=True)
 k=k[['CT','PPAGE_x','TOTAL_x','TOTAL_y']].reset_index(drop=True)
 k.columns=['CT','PPAGE','TOTAL','MOE']
-k=pd.merge(tppp.groupby(['CT','PPAGE'],as_index=False).agg({'TOTAL':'sum'}),k,how='inner',on=['CT','PPAGE'])
+k=pd.merge(dfpp.groupby(['CT','PPAGE'],as_index=False).agg({'TOTAL':'sum'}),k,how='inner',on=['CT','PPAGE'])
 k=k.sort_values('TOTAL_y').reset_index(drop=True)
 p=px.scatter(k,x='TOTAL_x',y='TOTAL_y')
 p.show()
@@ -556,20 +531,17 @@ fig=fig.add_trace(go.Scattergl(name='MODEL',
 fig.show()
 print(len(k[(k['TOTAL_x']<=k['TOTAL_y']+k['MOE'])&(k['TOTAL_x']>=k['TOTAL_y']-k['MOE'])])/len(k))
 print(np.sqrt(sum((k['TOTAL_x']-k['TOTAL_y'])**2)/len(k)))
-
-
 
 # Check PPSCH
 k=pd.read_csv(path+'ACS/ppsch.csv',dtype=float,converters={'CT':str})
-k=k[np.isin(k['CT'],ct)].reset_index(drop=True)
-k=k.melt(id_vars=['CT'],value_vars=['PR','PRM','KG','KGM','G14','G14M','G58','G58M','HS','HSM',
-                                    'CL','CLM','GS','GSM'],var_name='PPSCH',value_name='TOTAL')
-k=pd.merge(k[np.isin(k['PPSCH'],['PR','KG','G14','G58','HS','CL','GS'])],
-           k[np.isin(k['PPSCH'],['PRM','KGM','G14M','G58M','HSM','CLM','GSM'])],how='inner',on='CT')
+k=k.melt(id_vars=['CT'],value_vars=['NS','NSM','PR','PRM','KG','KGM','G14','G14M','G58','G58M',
+                                    'HS','HSM','CL','CLM','GS','GSM'],var_name='PPSCH',value_name='TOTAL')
+k=pd.merge(k[np.isin(k['PPSCH'],['NS','PR','KG','G14','G58','HS','CL','GS'])],
+           k[np.isin(k['PPSCH'],['NSM','PRM','KGM','G14M','G58M','HSM','CLM','GSM'])],how='inner',on='CT')
 k=k[(k['PPSCH_x']+'M')==k['PPSCH_y']].reset_index(drop=True)
 k=k[['CT','PPSCH_x','TOTAL_x','TOTAL_y']].reset_index(drop=True)
 k.columns=['CT','PPSCH','TOTAL','MOE']
-k=pd.merge(tppp.groupby(['CT','PPSCH'],as_index=False).agg({'TOTAL':'sum'}),k,how='inner',on=['CT','PPSCH'])
+k=pd.merge(dfpp.groupby(['CT','PPSCH'],as_index=False).agg({'TOTAL':'sum'}),k,how='inner',on=['CT','PPSCH'])
 k=k.sort_values('TOTAL_y').reset_index(drop=True)
 p=px.scatter(k,x='TOTAL_x',y='TOTAL_y')
 p.show()
@@ -588,23 +560,20 @@ fig.show()
 print(len(k[(k['TOTAL_x']<=k['TOTAL_y']+k['MOE'])&(k['TOTAL_x']>=k['TOTAL_y']-k['MOE'])])/len(k))
 print(np.sqrt(sum((k['TOTAL_x']-k['TOTAL_y'])**2)/len(k)))
 
-
-
 # Check PPMODE
 k=pd.read_csv(path+'ACS/ppmode.csv',dtype=float,converters={'CT':str})
-k=k[np.isin(k['CT'],ct)].reset_index(drop=True)
-k=k.melt(id_vars=['CT'],value_vars=['DA','DAM','CP2','CP2M','CP3','CP3M','CP4','CP4M','CP56','CP56M',
-                                    'CP7','CP7M','BS','BSM','SW','SWM','CR','CRM','LR','LRM',
-                                    'FB','FBM','TC','TCM','MC','MCM','BC','BCM','WK','WKM',
+k=k.melt(id_vars=['CT'],value_vars=['NW','NWM','DA','DAM','CP2','CP2M','CP3','CP3M','CP4','CP4M',
+                                    'CP56','CP56M','CP7','CP7M','BS','BSM','SW','SWM','CR','CRM',
+                                    'LR','LRM','FB','FBM','TC','TCM','MC','MCM','BC','BCM','WK','WKM',
                                     'OT','OTM','HM','HMM'],var_name='PPMODE',value_name='TOTAL')
-k=pd.merge(k[np.isin(k['PPMODE'],['DA','CP2','CP3','CP4','CP56','CP7','BS','SW','CR','LR','FB','TC',
-                                  'MC','BC','WK','OT','HM'])],
-           k[np.isin(k['PPMODE'],['DAM','CP2M','CP3M','CP4M','CP56M','CP7M','BSM','SWM','CRM','LRM',
-                                  'FBM','TCM','MCM','BCM','WKM','OTM','HMM'])],how='inner',on='CT')
+k=pd.merge(k[np.isin(k['PPMODE'],['NW','DA','CP2','CP3','CP4','CP56','CP7','BS','SW','CR','LR','FB',
+                                  'TC','MC','BC','WK','OT','HM'])],
+           k[np.isin(k['PPMODE'],['NWM','DAM','CP2M','CP3M','CP4M','CP56M','CP7M','BSM','SWM','CRM',
+                                  'LRM','FBM','TCM','MCM','BCM','WKM','OTM','HMM'])],how='inner',on='CT')
 k=k[(k['PPMODE_x']+'M')==k['PPMODE_y']].reset_index(drop=True)
 k=k[['CT','PPMODE_x','TOTAL_x','TOTAL_y']].reset_index(drop=True)
 k.columns=['CT','PPMODE','TOTAL','MOE']
-k=pd.merge(tppp.groupby(['CT','PPMODE'],as_index=False).agg({'TOTAL':'sum'}),k,how='inner',on=['CT','PPMODE'])
+k=pd.merge(dfpp.groupby(['CT','PPMODE'],as_index=False).agg({'TOTAL':'sum'}),k,how='inner',on=['CT','PPMODE'])
 k=k.sort_values('TOTAL_y').reset_index(drop=True)
 p=px.scatter(k,x='TOTAL_x',y='TOTAL_y')
 p.show()

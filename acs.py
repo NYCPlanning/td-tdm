@@ -1,5 +1,6 @@
 import requests
 import pandas as pd
+import numpy as np
 
 pd.set_option('display.max_columns', None)
 path='C:/Users/mayij/Desktop/DOC/DCP2021/TRAVEL DEMAND MODEL/'
@@ -229,23 +230,6 @@ df.to_csv(path+'ACS/hhveh.csv',index=False)
 
 
 
-# # Household Workers
-# df=[]
-# for i in bpm:
-#     rs=requests.get('https://api.census.gov/data/2019/acs/acs5/?get=NAME,group(B08202)&for=tract:*&in=state:'+i[:2]+' county:'+i[2:]+'&key='+apikey).json()
-#     rs=pd.DataFrame(rs)
-#     rs.columns=rs.loc[0]
-#     rs=rs.loc[1:].reset_index(drop=True)
-#     rs['geoid']=[x[9:] for x in rs['GEO_ID']]
-#     rs=rs[['geoid','B08202_001E','B08202_001M','B08202_002E','B08202_002M','B08202_003E','B08202_003M',
-#            'B08202_004E','B08202_004M','B08202_005E','B08202_005M']].reset_index(drop=True)
-#     rs.columns=['CT','TT','TTM','WORK0','WORK0M','WORK1','WORK1M','WORK2','WORK2M','WORK3','WORK3M']
-#     df+=[rs]
-# df=pd.concat(df,axis=0,ignore_index=True)
-# df.to_csv(path+'POP/hhwork.csv',index=False)
-
-
-
 # Group Quarter Population
 df=[]
 for i in bpm:
@@ -278,6 +262,23 @@ df.to_csv(path+'ACS/pptt.csv',index=False)
 
 
 
+# Sex
+df=[]
+for i in bpm:
+    rs=requests.get('https://api.census.gov/data/2019/acs/acs5/subject?get=NAME,group(S0101)&for=tract:*&in=state:'+i[:2]+' county:'+i[2:]+'&key='+apikey).json()
+    rs=pd.DataFrame(rs)
+    rs.columns=rs.loc[0]
+    rs=rs.loc[1:].reset_index(drop=True)
+    rs['geoid']=[x[9:] for x in rs['GEO_ID']]
+    rs=rs[['geoid','S0101_C01_001E','S0101_C01_001M','S0101_C03_001E','S0101_C03_001M',
+           'S0101_C05_001E','S0101_C05_001M']].reset_index(drop=True)
+    rs.columns=['CT','TT','TTM','MALE','MALEM','FEMALE','FEMALEM']
+    df+=[rs]
+df=pd.concat(df,axis=0,ignore_index=True)
+df.to_csv(path+'ACS/ppsex.csv',index=False)
+
+
+
 # Age
 df=[]
 for i in bpm:
@@ -306,7 +307,39 @@ df.to_csv(path+'ACS/ppage.csv',index=False)
 
 
 
+# School
+pptt=pd.read_csv(path+'ACS/pptt.csv',dtype=str)
+df=[]
+for i in bpm:
+    rs=requests.get('https://api.census.gov/data/2019/acs/acs5/subject?get=NAME,group(S1401)&for=tract:*&in=state:'+i[:2]+' county:'+i[2:]+'&key='+apikey).json()
+    rs=pd.DataFrame(rs)
+    rs.columns=rs.loc[0]
+    rs=rs.loc[1:].reset_index(drop=True)
+    rs['geoid']=[x[9:] for x in rs['GEO_ID']]
+    rs=rs[['geoid','S1401_C01_001E','S1401_C01_001M','S1401_C01_002E','S1401_C01_002M',
+           'S1401_C01_004E','S1401_C01_004M','S1401_C01_005E','S1401_C01_005M',
+           'S1401_C01_006E','S1401_C01_006M','S1401_C01_007E','S1401_C01_007M',
+           'S1401_C01_008E','S1401_C01_008M','S1401_C01_009E','S1401_C01_009M']].reset_index(drop=True)
+    rs.columns=['CT','TS','TSM','PR','PRM','KG','KGM','G14','G14M','G58','G58M','HS','HSM','CL','CLM',
+                'GS','GSM']
+    df+=[rs]
+df=pd.concat(df,axis=0,ignore_index=True)
+df=pd.merge(pptt,df,how='left',on='CT')
+df=df.fillna(0)
+df['TT']=pd.to_numeric(df['TT'])
+df['TTM']=pd.to_numeric(df['TTM'])
+df['TS']=pd.to_numeric(df['TS'])
+df['TSM']=pd.to_numeric(df['TSM'])
+df['NS']=df['TT']-df['TS']
+df['NSM']=np.sqrt(df['TTM']**2+df['TSM']**2)
+df=df[['CT','TT','TTM','NS','NSM','PR','PRM','KG','KGM','G14','G14M','G58','G58M','HS','HSM','CL','CLM',
+       'GS','GSM']].reset_index(drop=True)
+df.to_csv(path+'ACS/ppsch.csv',index=False)
+
+
+
 # Mode
+pptt=pd.read_csv(path+'ACS/pptt.csv',dtype=str)
 df=[]
 for i in bpm:
     rs=requests.get('https://api.census.gov/data/2019/acs/acs5/?get=NAME,group(B08301)&for=tract:*&in=state:'+i[:2]+' county:'+i[2:]+'&key='+apikey).json()
@@ -323,49 +356,24 @@ for i in bpm:
            'B08301_016E','B08301_016M','B08301_017E','B08301_017M',
            'B08301_018E','B08301_018M','B08301_019E','B08301_019M',
            'B08301_020E','B08301_020M','B08301_021E','B08301_021M']].reset_index(drop=True)
-    rs.columns=['CT','TT','TTM','DA','DAM','CP2','CP2M','CP3','CP3M','CP4','CP4M','CP56','CP56M',
+    rs.columns=['CT','TW','TWM','DA','DAM','CP2','CP2M','CP3','CP3M','CP4','CP4M','CP56','CP56M',
                 'CP7','CP7M','BS','BSM','SW','SWM','CR','CRM','LR','LRM','FB','FBM','TC','TCM',
                 'MC','MCM','BC','BCM','WK','WKM','OT','OTM','HM','HMM']
     df+=[rs]
 df=pd.concat(df,axis=0,ignore_index=True)
+df=pd.merge(pptt,df,how='left',on='CT')
+df=df.fillna(0)
+df['TT']=pd.to_numeric(df['TT'])
+df['TTM']=pd.to_numeric(df['TTM'])
+df['TW']=pd.to_numeric(df['TW'])
+df['TWM']=pd.to_numeric(df['TWM'])
+df['NW']=df['TT']-df['TW']
+df['NWM']=np.sqrt(df['TTM']**2+df['TWM']**2)
+df=df[['CT','TT','TTM','NW','NWM','DA','DAM','CP2','CP2M','CP3','CP3M','CP4','CP4M','CP56','CP56M',
+       'CP7','CP7M','BS','BSM','SW','SWM','CR','CRM','LR','LRM','FB','FBM','TC','TCM','MC','MCM',
+       'BC','BCM','WK','WKM','OT','OTM','HM','HMM']].reset_index(drop=True)
 df.to_csv(path+'ACS/ppmode.csv',index=False)
 
-
-
-# School
-df=[]
-for i in bpm:
-    rs=requests.get('https://api.census.gov/data/2019/acs/acs5/subject?get=NAME,group(S1401)&for=tract:*&in=state:'+i[:2]+' county:'+i[2:]+'&key='+apikey).json()
-    rs=pd.DataFrame(rs)
-    rs.columns=rs.loc[0]
-    rs=rs.loc[1:].reset_index(drop=True)
-    rs['geoid']=[x[9:] for x in rs['GEO_ID']]
-    rs=rs[['geoid','S1401_C01_001E','S1401_C01_001M','S1401_C01_002E','S1401_C01_002M',
-           'S1401_C01_004E','S1401_C01_004M','S1401_C01_005E','S1401_C01_005M',
-           'S1401_C01_006E','S1401_C01_006M','S1401_C01_007E','S1401_C01_007M',
-           'S1401_C01_008E','S1401_C01_008M','S1401_C01_009E','S1401_C01_009M']].reset_index(drop=True)
-    rs.columns=['CT','TT','TTM','PR','PRM','KG','KGM','G14','G14M','G58','G58M','HS','HSM','CL','CLM',
-                'GS','GSM']
-    df+=[rs]
-df=pd.concat(df,axis=0,ignore_index=True)
-df.to_csv(path+'ACS/ppsch.csv',index=False)
-
-
-
-# Sex
-df=[]
-for i in bpm:
-    rs=requests.get('https://api.census.gov/data/2019/acs/acs5/subject?get=NAME,group(S0101)&for=tract:*&in=state:'+i[:2]+' county:'+i[2:]+'&key='+apikey).json()
-    rs=pd.DataFrame(rs)
-    rs.columns=rs.loc[0]
-    rs=rs.loc[1:].reset_index(drop=True)
-    rs['geoid']=[x[9:] for x in rs['GEO_ID']]
-    rs=rs[['geoid','S0101_C01_001E','S0101_C01_001M','S0101_C03_001E','S0101_C03_001M',
-           'S0101_C05_001E','S0101_C05_001M']].reset_index(drop=True)
-    rs.columns=['CT','TT','TTM','MALE','MALEM','FEMALE','FEMALEM']
-    df+=[rs]
-df=pd.concat(df,axis=0,ignore_index=True)
-df.to_csv(path+'ACS/ppsex.csv',index=False)
 
 
 

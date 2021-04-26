@@ -1,17 +1,8 @@
-import ipfn
 import pandas as pd
 import numpy as np
-import sklearn.linear_model
-import statsmodels.api as sm
-import plotly.graph_objects as go
-import plotly.express as px
-import plotly.io as pio
-
-
 
 pd.set_option('display.max_columns', None)
 path='C:/Users/mayij/Desktop/DOC/DCP2021/TRAVEL DEMAND MODEL/'
-pio.renderers.default='browser'
 
 
 
@@ -32,6 +23,7 @@ pumshh['PUMA']=pumshh['ST']+pumshh['PUMA']
 pumshh=pd.merge(pumshh,geoxwalk[['PUMA2010','StateCounty']].drop_duplicates(keep='first'),how='left',left_on='PUMA',right_on='PUMA2010')
 pumshh=pumshh[np.isin(pumshh['StateCounty'],bpm)].reset_index(drop=True)
 pumshhgq=pumshh.loc[pumshh['TYPE']!='1',['HHID','PUMA']].reset_index(drop=True)
+pumshhgq=pumshhgq.drop_duplicates(keep='first').reset_index(drop=True)
 pumshhgq.to_csv(path+'PUMS/pumshhgq.csv',index=False)
 pumshh=pumshh[pumshh['TYPE']=='1'].reset_index(drop=True)
 pumshh=pumshh[pumshh['WGTP']!='0'].reset_index(drop=True)
@@ -99,6 +91,7 @@ pumshh['HHVEH']=np.where(pumshh['NP']=='0','VAC',
                 np.where(pumshh['VEH']=='2','VEH2',
                 np.where(pumshh['VEH']=='3','VEH3','VEH4')))))
 pumshh=pumshh[['HHID','PUMA','WGTP','HHSIZE','HHTYPE','HHINC','HHTEN','HHSTR','HHBLT','HHBED','HHVEH']].reset_index(drop=True)
+pumshh=pumshh.drop_duplicates(keep='first').reset_index(drop=True)
 pumshh.to_csv(path+'PUMS/pumshh.csv',index=False)
 
 
@@ -115,6 +108,7 @@ pumspp=pd.merge(pumspp,geoxwalk[['PUMA2010','StateCounty']].drop_duplicates(keep
 pumspp=pumspp[np.isin(pumspp['StateCounty'],bpm)].reset_index(drop=True)
 pumsppgq=pumspp[np.isin(pumspp['RELSHIPP'],['37','38'])].reset_index(drop=True)
 pumsppgq=pumsppgq[['PPID','HHID','PUMA','PWGTP']].reset_index(drop=True)
+pumsppgq=pumsppgq.drop_duplicates(keep='first').reset_index(drop=True)
 pumsppgq.to_csv(path+'PUMS/pumsppgq.csv',index=False)
 pumspp=pumspp[~np.isin(pumspp['RELSHIPP'],['37','38'])].reset_index(drop=True)
 pumspp=pumspp[pumspp['PWGTP']!='0'].reset_index(drop=True)
@@ -173,8 +167,9 @@ pumspp['PPMODE']=np.where((pumspp['JWTRNS']=='01')&(pumspp['JWRIP']=='1'),'DA',
                  np.where(pumspp['JWTRNS']=='09','BC',
                  np.where(pumspp['JWTRNS']=='10','WK',
                  np.where(pumspp['JWTRNS']=='11','HM',
-                 np.where(pumspp['JWTRNS']=='12','OT','NK')))))))))))))))))))))
+                 np.where(pumspp['JWTRNS']=='12','OT','NW')))))))))))))))))))))
 pumspp=pumspp[['PPID','HHID','PUMA','PWGTP','PPSEX','PPAGE','PPSCH','PPMODE']].reset_index(drop=True)
+pumspp=pumspp.drop_duplicates(keep='first').reset_index(drop=True)
 pumspp.to_csv(path+'PUMS/pumspp.csv',index=False)
 
 
@@ -182,8 +177,6 @@ pumspp.to_csv(path+'PUMS/pumspp.csv',index=False)
 
 #class of worker:cow
 #Travel time to work:JWMNP
-
-#sex
 
 #education
 #employment status

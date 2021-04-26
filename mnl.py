@@ -1,3 +1,4 @@
+import ipfn
 import pandas as pd  
 import numpy as np
 import sklearn.model_selection
@@ -14,6 +15,84 @@ import plotly.io as pio
 
 path='C:/Users/mayij/Desktop/DOC/DCP2021/TRAVEL DEMAND MODEL/'
 pio.renderers.default = "browser"
+
+
+
+pumshh=pd.read_csv(path+'PUMS/pumshh.csv',dtype=str)
+pumabed=pumshh[np.isin(pumshh['HHBLT'],['B00','B10','B14'])].reset_index(drop=True)
+pumabed['WGTP']=pd.to_numeric(pumabed['WGTP'])
+pumabed=pumabed.groupby(['PUMA','HHBED'],as_index=False).agg({'WGTP':'sum'}).reset_index(drop=True)
+pumabed=pd.merge(pumabed,pumabed.groupby(['PUMA'],as_index=False).agg({'WGTP':'sum'}).reset_index(drop=True),how='inner',on='PUMA')
+pumabed['PCT']=pumabed['WGTP_x']/pumabed['WGTP_y']
+pumabed=pumabed[['PUMA','HHBED','PCT']].reset_index(drop=True)
+
+
+
+tp=pd.DataFrame(columns=['PUMA','CT','UNIT'])
+tp.loc[0]=['3603805','36005020000',100]
+tpbed=pd.DataFrame(ipfn.ipfn.product(tp['CT'],pumshh['HHBED'].unique()),columns=['CT','HHBED'])
+tpbed=pd.merge(tp,tpbed,how='inner',on='CT')
+tpbed=pd.merge(tpbed,pumabed,how='inner',on=['PUMA','HHBED'])
+tpbed['UNIT']=tpbed['UNIT']*tpbed['PCT']
+tpbed=tpbed[['PUMA','CT','HHBED','UNIT']].reset_index(drop=True)
+
+
+# MNL
+df=pd.concat([pumshh[['WGTP','HHSIZE']],pd.get_dummies(pumshh['HHBED'],drop_first=True)],axis=1,ignore_index=False)
+df['WGTP']=pd.to_numeric(df['WGTP'])
+trainx=df.drop(['WGTP','HHSIZE'],axis=1)
+trainy=df['HHSIZE']
+trainwt=df['WGTP']
+reg=sklearn.linear_model.LogisticRegression(max_iter=1000).fit(trainx,trainy,trainwt)
+# sm.MNLogit(trainy,sm.add_constant(trainx)).fit().summary()
+
+tpbedsize=pd.DataFrame(ipfn.ipfn.product(sorted(pumshh['HHBED'].unique()),sorted(pumshh['HHSIZE'].unique())),columns=['HHBED','HHSIZE'])
+tpbedsize=pd.concat([tpbedsize[['HHSIZE']],pd.get_dummies(tpbedsize['HHBED'],drop_first=True)],axis=1,ignore_index=False)
+tpbedsize['MNL']=np.nan
+modelx=tpbedsize.drop(['HHSIZE','MNL'],axis=1).drop_duplicates(keep='first')
+tpbedsize['MNL']=np.ndarray.flatten(reg.predict_proba(modelx))
+tpbedsize['HHBED']=np.where(tpbedsize['BED1']==1,'BED1',
+                   np.where(tpbedsize['BED2']==1,'BED2',
+                   np.where(tpbedsize['BED3']==1,'BED3',
+                   np.where(tpbedsize['BED4']==1,'BED4',
+                   np.where(tpbedsize['BED5']==1,'BED5','BED0')))))
+tpbedsize=tpbedsize[['HHBED','HHSIZE','MNL']].reset_index(drop=True)
+
+# Proportional Allocation
+df=pumshh[['HHBED','HHSIZE','WGTP']].reset_index(drop=True)
+df['WGTP']=pd.to_numeric(df['WGTP'])
+df=df.groupby(['HHBED','HHSIZE'],as_index=False).agg({'WGTP':'sum'}).reset_index(drop=True)
+df=pd.merge(df,df.groupby(['HHBED'],as_index=False).agg({'WGTP':'sum'}).reset_index(drop=True),how='inner',on='HHBED')
+df['PCT']=df['WGTP_x']/df['WGTP_y']
+df=df[['HHBED','HHSIZE','PCT']].reset_index(drop=True)
+
+
+tpbedsize=pd.merge(tpbed,tpbedsize,how='inner',on='HHBED')
+tpbedsize=pd.merge(tpbedsize,df,how='inner',on=['HHBED','HHSIZE'])
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
 
 
 
