@@ -18,9 +18,8 @@ pio.renderers.default = "browser"
 
 
 
-pumshh=pd.read_csv(path+'PUMS/pumshh.csv',dtype=str)
+pumshh=pd.read_csv(path+'PUMS/pumshh.csv',dtype=str,converters={'WGTP':float})
 pumabed=pumshh[np.isin(pumshh['HHBLT'],['B00','B10','B14'])].reset_index(drop=True)
-pumabed['WGTP']=pd.to_numeric(pumabed['WGTP'])
 pumabed=pumabed.groupby(['PUMA','HHBED'],as_index=False).agg({'WGTP':'sum'}).reset_index(drop=True)
 pumabed=pd.merge(pumabed,pumabed.groupby(['PUMA'],as_index=False).agg({'WGTP':'sum'}).reset_index(drop=True),how='inner',on='PUMA')
 pumabed['PCT']=pumabed['WGTP_x']/pumabed['WGTP_y']
