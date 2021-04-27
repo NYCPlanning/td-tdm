@@ -229,7 +229,8 @@ fig=fig.add_trace(go.Scattergl(name='MODEL',
                                x=k.index,
                                y=k['TOTAL_x'],
                                mode='lines',
-                               line={'color':'rgba(215,25,28,1)'}))
+                               line={'color':'rgba(215,25,28,1)',
+                                     'width':1}))
 fig.update_layout(
     template='plotly_white',
     title={'text':'HHTT (ACCURACY: '+format(acc*100,'.2f')+'%; '+'RMSE: '+format(rmse,'.2f')+')',
@@ -326,7 +327,8 @@ fig=fig.add_trace(go.Scattergl(name='MODEL',
                                x=k.index,
                                y=k['TOTAL_x'],
                                mode='lines',
-                               line={'color':'rgba(215,25,28,1)'}))
+                               line={'color':'rgba(215,25,28,1)',
+                                     'width':1}))
 fig.update_layout(
     template='plotly_white',
     title={'text':'HHOCC (ACCURACY: '+format(acc*100,'.2f')+'%; '+'RMSE: '+format(rmse,'.2f')+')',
@@ -367,6 +369,7 @@ k=k[['CT','HHSIZE_x','TOTAL_x','TOTAL_y']].reset_index(drop=True)
 k.columns=['CT','HHSIZE','TOTAL','MOE']
 k=pd.merge(tptest.groupby(['CT','HHSIZE'],as_index=False).agg({'TOTAL':'sum'}),k,how='inner',on=['CT','HHSIZE'])
 k=k.sort_values('TOTAL_y').reset_index(drop=True)
+k['HOVER']='MODEL: '+k['TOTAL_x'].astype(int).astype(str)+'<br>'
 acc=len(k[(k['TOTAL_x']<=k['TOTAL_y']+k['MOE'])&(k['TOTAL_x']>=k['TOTAL_y']-k['MOE'])])/len(k)
 rmse=np.sqrt(sum((k['TOTAL_x']-k['TOTAL_y'])**2)/len(k))
 val.loc[val['FIELD']=='HHSIZE','ACCURACY']=acc
@@ -422,9 +425,9 @@ fig=fig.add_trace(go.Scattergl(name='ACS',
 fig=fig.add_trace(go.Scattergl(name='MODEL',
                                x=k.index,
                                y=k['TOTAL_x'],
-                               mode='lines',
-                               line={'color':'rgba(215,25,28,0.2)',
-                                     'width':1}))
+                               mode='markers',
+                               marker={'color':'rgba(215,25,28,1)',
+                                     'size':1.5}))
 fig.update_layout(
     template='plotly_white',
     title={'text':'HHSIZE (ACCURACY: '+format(acc*100,'.2f')+'%; '+'RMSE: '+format(rmse,'.2f')+')',
