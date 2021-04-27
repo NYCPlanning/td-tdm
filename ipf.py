@@ -119,8 +119,12 @@ dfhh=pd.read_csv(path+'POP/dfhh.csv',dtype=str,converters={'TOTAL':float})
 
 # Check HHID Weight Sum
 k=pd.merge(dfhh.groupby(['HHID']).agg({'TOTAL':'sum'}),pumshh[['HHID','WGTP']],how='inner',on='HHID')
-p=px.scatter(k,x='TOTAL',y='WGTP')
-p.show()
+fig=go.Figure()
+fig=fig.add_trace(go.Scattergl(name='PUMS',
+                               x=k['TOTAL'],
+                               y=k['WGTP'],
+                               mode='markers'))
+fig.show()
 
 # Check HHTT
 k=pd.read_csv(path+'ACS/hhtt.csv',dtype=float,converters={'CT':str})
@@ -425,8 +429,12 @@ dfhhgq=pd.read_csv(path+'POP/dfhhgq.csv',dtype=str,converters={'TOTAL':float})
 
 # Check GQ Weight Sum
 k=pd.merge(dfhhgq.groupby(['HHID']).agg({'TOTAL':'sum'}),pumsppgq[['HHID','PWGTP']],how='inner',on='HHID')
-p=px.scatter(k,x='TOTAL',y='PWGTP')
-p.show()
+fig=go.Figure()
+fig=fig.add_trace(go.Scattergl(name='PUMS',
+                               x=k['TOTAL'],
+                               y=k['PWGTP'],
+                               mode='markers'))
+fig.show()
 
 # Check GQTT
 k=pd.read_csv(path+'ACS/gqtt.csv',dtype=float,converters={'CT':str})
@@ -459,8 +467,12 @@ dfpp=pd.read_csv(path+'POP/dfpp.csv',dtype=str,converters={'PWGTP':float,'TOTAL'
 
 # Check PPID Weight Sum
 k=pd.merge(dfpp.groupby(['PPID']).agg({'TOTAL':'sum'}),pd.concat([pumspp[['PPID','PWGTP']],pumsppgq[['PPID','PWGTP']]]),how='inner',on='PPID')
-p=px.scatter(k,x='TOTAL',y='PWGTP')
-p.show()
+fig=go.Figure()
+fig=fig.add_trace(go.Scattergl(name='PUMS',
+                               x=k['TOTAL'],
+                               y=k['PWGTP'],
+                               mode='markers'))
+fig.show()
 
 # Check PPTT
 k=pd.read_csv(path+'ACS/pptt.csv',dtype=float,converters={'CT':str})
