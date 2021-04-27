@@ -21,8 +21,9 @@ bpmct=geoxwalk.loc[np.isin(geoxwalk['StateCounty'],bpm),'CensusTract2010'].uniqu
 
 
 
-dfpp=pd.read_csv(path+'POP/dfpp.csv',dtype=str,converters={'TOTAL':float},nrows=1)
+dfpp=pd.read_csv(path+'POP/dfpp.csv',dtype=str,converters={'TOTAL':float})
 
+dfpp.PPMODE.value_counts(dropna=False)
 
 
 

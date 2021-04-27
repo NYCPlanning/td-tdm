@@ -106,24 +106,46 @@ pumspp['PUMA']=pumspp['ST']+pumspp['PUMA']
 pumspp=pd.merge(pumspp,geoxwalk[['PUMA2010','StateCounty']].drop_duplicates(keep='first'),how='left',left_on='PUMA',right_on='PUMA2010')
 pumspp=pumspp[np.isin(pumspp['StateCounty'],bpm)].reset_index(drop=True)
 pumspp['PPSEX']=np.where(pumspp['SEX']=='1','MALE','FEMALE')
-pumspp['PPAGE']=pd.to_numeric(pumspp['AGEP'])
-pumspp['PPAGE']=np.where(pumspp['PPAGE']<=5,'AGE01',
-                np.where(pumspp['PPAGE']<=9,'AGE02',
-                np.where(pumspp['PPAGE']<=14,'AGE03',
-                np.where(pumspp['PPAGE']<=19,'AGE04',
-                np.where(pumspp['PPAGE']<=24,'AGE05',
-                np.where(pumspp['PPAGE']<=29,'AGE06',
-                np.where(pumspp['PPAGE']<=34,'AGE07',
-                np.where(pumspp['PPAGE']<=39,'AGE08',
-                np.where(pumspp['PPAGE']<=44,'AGE09',
-                np.where(pumspp['PPAGE']<=49,'AGE10',
-                np.where(pumspp['PPAGE']<=54,'AGE11',
-                np.where(pumspp['PPAGE']<=59,'AGE12',
-                np.where(pumspp['PPAGE']<=64,'AGE13',
-                np.where(pumspp['PPAGE']<=69,'AGE14',
-                np.where(pumspp['PPAGE']<=74,'AGE15',
-                np.where(pumspp['PPAGE']<=79,'AGE16',
-                np.where(pumspp['PPAGE']<=84,'AGE17','AGE18')))))))))))))))))
+pumspp['AGEP']=pd.to_numeric(pumspp['AGEP'])
+pumspp['PPAGE']=np.where(pumspp['AGEP']<=5,'AGE01',
+                np.where(pumspp['AGEP']<=9,'AGE02',
+                np.where(pumspp['AGEP']<=14,'AGE03',
+                np.where(pumspp['AGEP']<=19,'AGE04',
+                np.where(pumspp['AGEP']<=24,'AGE05',
+                np.where(pumspp['AGEP']<=29,'AGE06',
+                np.where(pumspp['AGEP']<=34,'AGE07',
+                np.where(pumspp['AGEP']<=39,'AGE08',
+                np.where(pumspp['AGEP']<=44,'AGE09',
+                np.where(pumspp['AGEP']<=49,'AGE10',
+                np.where(pumspp['AGEP']<=54,'AGE11',
+                np.where(pumspp['AGEP']<=59,'AGE12',
+                np.where(pumspp['AGEP']<=64,'AGE13',
+                np.where(pumspp['AGEP']<=69,'AGE14',
+                np.where(pumspp['AGEP']<=74,'AGE15',
+                np.where(pumspp['AGEP']<=79,'AGE16',
+                np.where(pumspp['AGEP']<=84,'AGE17','AGE18')))))))))))))))))
+pumspp['PPRACE']=np.where(pumspp['HISP']!='01','HSP',
+                 np.where(pumspp['RAC1P']=='1','WHT',
+                 np.where(pumspp['RAC1P']=='2','BLK',
+                 np.where(pumspp['RAC1P']=='3','NTV',
+                 np.where(pumspp['RAC1P']=='4','NTV',
+                 np.where(pumspp['RAC1P']=='5','NTV',
+                 np.where(pumspp['RAC1P']=='6','ASN',
+                 np.where(pumspp['RAC1P']=='7','PCF',
+                 np.where(pumspp['RAC1P']=='8','OTH',
+                 np.where(pumspp['RAC1P']=='9','TWO','OT'))))))))))
+pumspp['PPEDU']=np.where(pumspp['AGEP']<18,'U18',
+                np.where((pumspp['AGEP']<=24)&(np.isin(pumspp['SCHL'],['01','02','03','04','05','06','07','08','09','10','11','12','13','14','15'])),'U24LH',
+                np.where((pumspp['AGEP']<=24)&(np.isin(pumspp['SCHL'],['16','17'])),'U24HS',
+                np.where((pumspp['AGEP']<=24)&(np.isin(pumspp['SCHL'],['18','19','20'])),'U24AD',
+                np.where((pumspp['AGEP']<=24)&(np.isin(pumspp['SCHL'],['21','22','23','24'])),'U24BD',
+                np.where((pumspp['AGEP']>=25)&(np.isin(pumspp['SCHL'],['01','02','03','04','05','06','07','08','09','10','11'])),'O25G9',
+                np.where((pumspp['AGEP']>=25)&(np.isin(pumspp['SCHL'],['12','13','14','15'])),'O25LH',
+                np.where((pumspp['AGEP']>=25)&(np.isin(pumspp['SCHL'],['16','17'])),'O25HS',
+                np.where((pumspp['AGEP']>=25)&(np.isin(pumspp['SCHL'],['18','19'])),'O25SC',
+                np.where((pumspp['AGEP']>=25)&(np.isin(pumspp['SCHL'],['20'])),'O25AD',
+                np.where((pumspp['AGEP']>=25)&(np.isin(pumspp['SCHL'],['21'])),'O25BD',
+                np.where((pumspp['AGEP']>=25)&(np.isin(pumspp['SCHL'],['22','23','24'])),'O25GD','OT'))))))))))))
 pumspp['PPSCH']=np.where(pumspp['SCHG']=='01','PR',
                 np.where(pumspp['SCHG']=='02','KG',
                 np.where(pumspp['SCHG']=='03','G14',
@@ -140,6 +162,39 @@ pumspp['PPSCH']=np.where(pumspp['SCHG']=='01','PR',
                 np.where(pumspp['SCHG']=='14','HS',
                 np.where(pumspp['SCHG']=='15','CL',
                 np.where(pumspp['SCHG']=='16','GS','NS'))))))))))))))))
+pumspp['NAICS']=[str(x)[:2] for x in pumspp['NAICSP']]
+pumspp['PPIND']=np.where(pumspp['AGEP']<16,'U16',
+                np.where(pumspp['ESR']=='6','NLF',
+                np.where(pumspp['ESR']=='6','NLF',
+                np.where(pumspp['ESR']=='4','MIL',
+                np.where(pumspp['ESR']=='5','MIL',
+                np.where(pumspp['ESR']=='3','CUP',
+                np.where(pumspp['NAICS']=='11','AGR',
+                np.where(pumspp['NAICS']=='21','EXT',
+                np.where(pumspp['NAICS']=='23','CON',
+                np.where(pumspp['NAICS']=='31','MFG',
+                np.where(pumspp['NAICS']=='32','MFG',
+                np.where(pumspp['NAICS']=='33','MFG',
+                np.where(pumspp['NAICS']=='3M','MFG',
+                np.where(pumspp['NAICS']=='42','WHL',
+                np.where(pumspp['NAICS']=='44','RET',
+                np.where(pumspp['NAICS']=='45','RET',
+                np.where(pumspp['NAICS']=='4M','RET',
+                np.where(pumspp['NAICS']=='48','TRN',
+                np.where(pumspp['NAICS']=='49','TRN',
+                np.where(pumspp['NAICS']=='22','UTL',
+                np.where(pumspp['NAICS']=='51','INF',
+                np.where(pumspp['NAICS']=='52','FIN',
+                np.where(pumspp['NAICS']=='53','RER',
+                np.where(pumspp['NAICS']=='54','PRF',
+                np.where(pumspp['NAICS']=='55','MNG',
+                np.where(pumspp['NAICS']=='56','WMS',
+                np.where(pumspp['NAICS']=='61','EDU',
+                np.where(pumspp['NAICS']=='62','MED',
+                np.where(pumspp['NAICS']=='71','ENT',
+                np.where(pumspp['NAICS']=='72','ACC',
+                np.where(pumspp['NAICS']=='81','SRV',
+                np.where(pumspp['NAICS']=='92','ADM','OTH'))))))))))))))))))))))))))))))))
 pumspp['PPMODE']=np.where((pumspp['JWTRNS']=='01')&(pumspp['JWRIP']=='1'),'DA',
                  np.where((pumspp['JWTRNS']=='01')&(pumspp['JWRIP']=='2'),'CP2',
                  np.where((pumspp['JWTRNS']=='01')&(pumspp['JWRIP']=='3'),'CP3',
@@ -162,24 +217,18 @@ pumspp['PPMODE']=np.where((pumspp['JWTRNS']=='01')&(pumspp['JWRIP']=='1'),'DA',
                  np.where(pumspp['JWTRNS']=='11','HM',
                  np.where(pumspp['JWTRNS']=='12','OT','NW')))))))))))))))))))))
 pumsppgq=pumspp[np.isin(pumspp['RELSHIPP'],['37','38'])].reset_index(drop=True)
-pumsppgq=pumsppgq[['PPID','HHID','PUMA','PWGTP','PPSEX','PPAGE','PPSCH','PPMODE']].reset_index(drop=True)
+pumsppgq=pumsppgq[['PPID','HHID','PUMA','PWGTP','PPSEX','PPAGE','PPRACE','PPEDU','PPSCH','PPIND','PPMODE']].reset_index(drop=True)
 pumsppgq=pumsppgq.drop_duplicates(keep='first').reset_index(drop=True)
 pumsppgq.to_csv(path+'PUMS/pumsppgq.csv',index=False)
 pumspp=pumspp[~np.isin(pumspp['RELSHIPP'],['37','38'])].reset_index(drop=True)
-pumspp=pumspp[['PPID','HHID','PUMA','PWGTP','PPSEX','PPAGE','PPSCH','PPMODE']].reset_index(drop=True)
+pumspp=pumspp[['PPID','HHID','PUMA','PWGTP','PPSEX','PPAGE','PPRACE','PPEDU','PPSCH','PPIND','PPMODE']].reset_index(drop=True)
 pumspp=pumspp.drop_duplicates(keep='first').reset_index(drop=True)
 pumspp.to_csv(path+'PUMS/pumspp.csv',index=False)
 
 
 
 
-#class of worker:cow
 #Travel time to work:JWMNP
-
-#education
-#employment status
-#industry
-#race
 
 
 

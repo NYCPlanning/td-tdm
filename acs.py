@@ -307,6 +307,65 @@ df.to_csv(path+'ACS/ppage.csv',index=False)
 
 
 
+# Race
+df=[]
+for i in bpm:
+    rs=requests.get('https://api.census.gov/data/2019/acs/acs5/?get=NAME,group(B03002)&for=tract:*&in=state:'+i[:2]+' county:'+i[2:]+'&key='+apikey).json()
+    rs=pd.DataFrame(rs)
+    rs.columns=rs.loc[0]
+    rs=rs.loc[1:].reset_index(drop=True)
+    rs['geoid']=[x[9:] for x in rs['GEO_ID']]
+    rs=rs[['geoid','B03002_001E','B03002_001M','B03002_012E','B03002_012M',
+           'B03002_003E','B03002_003M','B03002_004E','B03002_004M',
+           'B03002_005E','B03002_005M','B03002_006E','B03002_006M',
+           'B03002_007E','B03002_007M','B03002_008E','B03002_008M',
+           'B03002_009E','B03002_009M']].reset_index(drop=True)
+    rs.columns=['CT','TT','TTM','HSP','HSPM','WHT','WHTM','BLK','BLKM','NTV','NTVM','ASN','ASNM',
+                'PCF','PCFM','OTH','OTHM','TWO','TWOM']
+    df+=[rs]
+df=pd.concat(df,axis=0,ignore_index=True)
+df.to_csv(path+'ACS/pprace.csv',index=False)
+
+
+
+# Education
+pptt=pd.read_csv(path+'ACS/pptt.csv',dtype=str)
+df=[]
+for i in bpm:
+    rs=requests.get('https://api.census.gov/data/2019/acs/acs5/subject?get=NAME,group(S1501)&for=tract:*&in=state:'+i[:2]+' county:'+i[2:]+'&key='+apikey).json()
+    rs=pd.DataFrame(rs)
+    rs.columns=rs.loc[0]
+    rs=rs.loc[1:].reset_index(drop=True)
+    rs['geoid']=[x[9:] for x in rs['GEO_ID']]
+    rs=rs[['geoid','S1501_C01_001E','S1501_C01_001M','S1501_C01_002E','S1501_C01_002M',
+           'S1501_C01_003E','S1501_C01_003M','S1501_C01_004E','S1501_C01_004M',
+           'S1501_C01_005E','S1501_C01_005M','S1501_C01_006E','S1501_C01_006M',
+           'S1501_C01_007E','S1501_C01_007M','S1501_C01_008E','S1501_C01_008M',
+           'S1501_C01_009E','S1501_C01_009M','S1501_C01_010E','S1501_C01_010M',
+           'S1501_C01_011E','S1501_C01_011M','S1501_C01_012E','S1501_C01_012M',
+           'S1501_C01_013E','S1501_C01_013M']].reset_index(drop=True)
+    rs.columns=['CT','U24TT','U24TTM','U24LH','U24LHM','U24HS','U24HSM','U24AD','U24ADM',
+                'U24BD','U24BDM','O25TT','O25TTM','O25G9','O25G9M','O25LH','O25LHM','O25HS','O25HSM',
+                'O25SC','O25SCM','O25AD','O25ADM','O25BD','O25BDM','O25GD','O25GDM']
+    df+=[rs]
+df=pd.concat(df,axis=0,ignore_index=True)
+df=pd.merge(pptt,df,how='left',on='CT')
+df=df.fillna(0)
+df['TT']=pd.to_numeric(df['TT'])
+df['TTM']=pd.to_numeric(df['TTM'])
+df['U24TT']=pd.to_numeric(df['U24TT'])
+df['U24TTM']=pd.to_numeric(df['U24TTM'])
+df['O25TT']=pd.to_numeric(df['O25TT'])
+df['O25TTM']=pd.to_numeric(df['O25TTM'])
+df['U18']=df['TT']-df['U24TT']-df['O25TT']
+df['U18M']=np.sqrt(df['TTM']**2+df['U24TTM']**2+df['O25TTM']**2)
+df=df[['CT','TT','TTM','U18','U18M','U24LH','U24LHM','U24HS','U24HSM','U24AD','U24ADM',
+       'U24BD','U24BDM','O25G9','O25G9M','O25LH','O25LHM','O25HS','O25HSM','O25SC','O25SCM',
+       'O25AD','O25ADM','O25BD','O25BDM','O25GD','O25GDM']].reset_index(drop=True)
+df.to_csv(path+'ACS/ppedu.csv',index=False)
+
+
+
 # School
 pptt=pd.read_csv(path+'ACS/pptt.csv',dtype=str)
 df=[]
@@ -335,6 +394,61 @@ df['NSM']=np.sqrt(df['TTM']**2+df['TSM']**2)
 df=df[['CT','TT','TTM','NS','NSM','PR','PRM','KG','KGM','G14','G14M','G58','G58M','HS','HSM','CL','CLM',
        'GS','GSM']].reset_index(drop=True)
 df.to_csv(path+'ACS/ppsch.csv',index=False)
+
+
+
+# Industry
+pptt=pd.read_csv(path+'ACS/pptt.csv',dtype=str)
+df1=[]
+for i in bpm:
+    rs=requests.get('https://api.census.gov/data/2019/acs/acs5/subject?get=NAME,group(S2403)&for=tract:*&in=state:'+i[:2]+' county:'+i[2:]+'&key='+apikey).json()
+    rs=pd.DataFrame(rs)
+    rs.columns=rs.loc[0]
+    rs=rs.loc[1:].reset_index(drop=True)
+    rs['geoid']=[x[9:] for x in rs['GEO_ID']]
+    rs=rs[['geoid','S2403_C01_001E','S2403_C01_001M','S2403_C01_003E','S2403_C01_003M',
+           'S2403_C01_004E','S2403_C01_004M','S2403_C01_005E','S2403_C01_005M',
+           'S2403_C01_006E','S2403_C01_006M','S2403_C01_007E','S2403_C01_007M',
+           'S2403_C01_008E','S2403_C01_008M','S2403_C01_010E','S2403_C01_010M',
+           'S2403_C01_011E','S2403_C01_011M','S2403_C01_012E','S2403_C01_012M',
+           'S2403_C01_014E','S2403_C01_014M','S2403_C01_015E','S2403_C01_015M',
+           'S2403_C01_017E','S2403_C01_017M','S2403_C01_018E','S2403_C01_018M',
+           'S2403_C01_019E','S2403_C01_019M','S2403_C01_021E','S2403_C01_021M',
+           'S2403_C01_022E','S2403_C01_022M','S2403_C01_024E','S2403_C01_024M',
+           'S2403_C01_025E','S2403_C01_025M','S2403_C01_026E','S2403_C01_026M',
+           'S2403_C01_027E','S2403_C01_027M']].reset_index(drop=True)
+    rs.columns=['CT','CEP','CEPM','AGR','AGRM','EXT','EXTM','CON','CONM','MFG','MFGM','WHL','WHLM',
+                'RET','RETM','TRN','TRNM','UTL','UTLM','INF','INFM','FIN','FINM','RER','RERM',
+                'PRF','PRFM','MNG','MNGM','WMS','WMSM','EDU','EDUM','MED','MEDM','ENT','ENTM',
+                'ACC','ACCM','SRV','SRVM','ADM','ADMM']
+    df1+=[rs]
+df1=pd.concat(df1,axis=0,ignore_index=True)
+df2=[]
+for i in bpm:
+    rs=requests.get('https://api.census.gov/data/2019/acs/acs5/?get=NAME,group(B23025)&for=tract:*&in=state:'+i[:2]+' county:'+i[2:]+'&key='+apikey).json()
+    rs=pd.DataFrame(rs)
+    rs.columns=rs.loc[0]
+    rs=rs.loc[1:].reset_index(drop=True)
+    rs['geoid']=[x[9:] for x in rs['GEO_ID']]
+    rs=rs[['geoid','B23025_001E','B23025_001M','B23025_005E','B23025_005M',
+           'B23025_006E','B23025_006M','B23025_007E','B23025_007M']].reset_index(drop=True)
+    rs.columns=['CT','O16','O16M','CUP','CUPM','MIL','MILM','NLF','NLFM']    
+    df2+=[rs]
+df2=pd.concat(df2,axis=0,ignore_index=True)
+df=pd.merge(pptt,df1,how='left',on='CT')
+df=pd.merge(df,df2,how='left',on='CT')
+df=df.fillna(0)
+df['TT']=pd.to_numeric(df['TT'])
+df['TTM']=pd.to_numeric(df['TTM'])
+df['O16']=pd.to_numeric(df['O16'])
+df['O16M']=pd.to_numeric(df['O16M'])
+df['U16']=df['TT']-df['O16']
+df['U16M']=np.sqrt(df['TTM']**2+df['O16M']**2)
+df=df[['CT','TT','TTM','U16','U16M','AGR','AGRM','EXT','EXTM','CON','CONM','MFG','MFGM','WHL','WHLM',
+       'RET','RETM','TRN','TRNM','UTL','UTLM','INF','INFM','FIN','FINM','RER','RERM','PRF','PRFM',
+       'MNG','MNGM','WMS','WMSM','EDU','EDUM','MED','MEDM','ENT','ENTM','ACC','ACCM','SRV','SRVM',
+       'ADM','ADMM','CUP','CUPM','MIL','MILM','NLF','NLFM']].reset_index(drop=True)
+df.to_csv(path+'ACS/ppind.csv',index=False)
 
 
 
@@ -374,44 +488,6 @@ df=df[['CT','TT','TTM','NW','NWM','DA','DAM','CP2','CP2M','CP3','CP3M','CP4','CP
        'BC','BCM','WK','WKM','OT','OTM','HM','HMM']].reset_index(drop=True)
 df.to_csv(path+'ACS/ppmode.csv',index=False)
 
-
-
-
-# Travel Time
-pptt=pd.read_csv(path+'ACS/pptt.csv',dtype=str)
-df=[]
-for i in bpm:
-    rs=requests.get('https://api.census.gov/data/2019/acs/acs5/?get=NAME,group(B08301)&for=tract:*&in=state:'+i[:2]+' county:'+i[2:]+'&key='+apikey).json()
-    rs=pd.DataFrame(rs)
-    rs.columns=rs.loc[0]
-    rs=rs.loc[1:].reset_index(drop=True)
-    rs['geoid']=[x[9:] for x in rs['GEO_ID']]
-    rs=rs[['geoid','B08301_001E','B08301_001M','B08301_003E','B08301_003M',
-           'B08301_005E','B08301_005M','B08301_006E','B08301_006M',
-           'B08301_007E','B08301_007M','B08301_008E','B08301_008M',
-           'B08301_009E','B08301_009M','B08301_011E','B08301_011M',
-           'B08301_012E','B08301_012M','B08301_013E','B08301_013M',
-           'B08301_014E','B08301_014M','B08301_015E','B08301_015M',
-           'B08301_016E','B08301_016M','B08301_017E','B08301_017M',
-           'B08301_018E','B08301_018M','B08301_019E','B08301_019M',
-           'B08301_020E','B08301_020M','B08301_021E','B08301_021M']].reset_index(drop=True)
-    rs.columns=['CT','TW','TWM','DA','DAM','CP2','CP2M','CP3','CP3M','CP4','CP4M','CP56','CP56M',
-                'CP7','CP7M','BS','BSM','SW','SWM','CR','CRM','LR','LRM','FB','FBM','TC','TCM',
-                'MC','MCM','BC','BCM','WK','WKM','OT','OTM','HM','HMM']
-    df+=[rs]
-df=pd.concat(df,axis=0,ignore_index=True)
-df=pd.merge(pptt,df,how='left',on='CT')
-df=df.fillna(0)
-df['TT']=pd.to_numeric(df['TT'])
-df['TTM']=pd.to_numeric(df['TTM'])
-df['TW']=pd.to_numeric(df['TW'])
-df['TWM']=pd.to_numeric(df['TWM'])
-df['NW']=df['TT']-df['TW']
-df['NWM']=np.sqrt(df['TTM']**2+df['TWM']**2)
-df=df[['CT','TT','TTM','NW','NWM','DA','DAM','CP2','CP2M','CP3','CP3M','CP4','CP4M','CP56','CP56M',
-       'CP7','CP7M','BS','BSM','SW','SWM','CR','CRM','LR','LRM','FB','FBM','TC','TCM','MC','MCM',
-       'BC','BCM','WK','WKM','OT','OTM','HM','HMM']].reset_index(drop=True)
-df.to_csv(path+'ACS/ppmode.csv',index=False)
 
 
 
