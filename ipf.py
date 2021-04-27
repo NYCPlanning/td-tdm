@@ -80,7 +80,7 @@ for i in bpmpuma:
     tphh=pd.read_csv(path+'POP/tphh/'+i+'.csv',dtype=str,converters={'TOTAL':float})
     dfhh+=[tphh]
 dfhh=pd.concat(dfhh,axis=0,ignore_index=True)
-dfhh=dfhh.loc[dfhh['TOTAL']!=0,['HHID','CT','HHINC','TOTAL']].reset_index(drop=True)
+# dfhh=dfhh.loc[dfhh['TOTAL']!=0,['HHID','CT','HHINC','TOTAL']].reset_index(drop=True)
 dfhh['HHGQ']='HH'
 dfhh=dfhh.drop_duplicates(keep='first').reset_index(drop=True)
 dfhh=dfhh[['HHID','CT','HHGQ','HHINC','TOTAL']].reset_index(drop=True)
@@ -91,7 +91,7 @@ for i in bpmpuma:
     tpgq=pd.read_csv(path+'POP/tpgq/'+i+'.csv',dtype=str,converters={'TOTAL':float})
     dfhhgq+=[tpgq]  
 dfhhgq=pd.concat(dfhhgq,axis=0,ignore_index=True)
-dfhhgq=dfhhgq.loc[dfhhgq['TOTAL']!=0,['HHID','CT','TOTAL']].reset_index(drop=True)
+# dfhhgq=dfhhgq.loc[dfhhgq['TOTAL']!=0,['HHID','CT','TOTAL']].reset_index(drop=True)
 dfhhgq['HHGQ']='GQ'
 dfhhgq=dfhhgq.drop_duplicates(keep='first').reset_index(drop=True)
 dfhhgq=dfhhgq[['HHID','CT','HHGQ','TOTAL']].reset_index(drop=True)
@@ -113,40 +113,150 @@ dfpp.to_csv(path+'POP/dfpp.csv',index=False)
 
 
 # Validation
+val=pd.DataFrame(columns=['FIELD','ACCURACY','RMSE'])
+val['FIELD']=['HHID','HHTT','HHOCC','HHSIZE']
+
 # Check Household
 pumshh=pd.read_csv(path+'PUMS/pumshh.csv',dtype=str,converters={'WGTP':float})
 dfhh=pd.read_csv(path+'POP/dfhh.csv',dtype=str,converters={'TOTAL':float})
 
 # Check HHID Weight Sum
 k=pd.merge(dfhh.groupby(['HHID']).agg({'TOTAL':'sum'}),pumshh[['HHID','WGTP']],how='inner',on='HHID')
+acc=np.nan
+rmse=np.sqrt(sum((k['TOTAL']-k['WGTP'])**2)/len(k))
+val.loc[val['FIELD']=='HHID','ACCURACY']=acc
+val.loc[val['FIELD']=='HHID','RMSE']=rmse
 fig=go.Figure()
-fig=fig.add_trace(go.Scattergl(name='PUMS',
+fig=fig.add_trace(go.Scattergl(name='PUMS vs MODEL',
                                x=k['TOTAL'],
                                y=k['WGTP'],
-                               mode='markers'))
-fig.show()
+                               mode='markers',
+                               marker={'color':'rgba(44,127,184,1)',
+                                       'size':5},
+                               hovertemplate='MODEL: %{x:.0f}<br>PUMS: %{y:.0f}'))
+fig=fig.add_trace(go.Scattergl(name='OPTIMAL',
+                               x=[0,max(k['TOTAL'])],
+                               y=[0,max(k['TOTAL'])],
+                               mode='lines',
+                               line={'color':'rgba(215,25,28,1)',
+                                     'width':2}))
+fig.update_layout(
+    template='plotly_white',
+    title={'text':'HHID WEIGHT SUM (RMSE: '+format(rmse,'.2f')+')',
+           'font_size':20,
+           'x':0.5,
+           'xanchor':'center'},
+    legend={'orientation':'h',
+            'title_text':'',
+            'font_size':16,
+            'x':0.5,
+            'xanchor':'center',
+            'y':1,
+            'yanchor':'bottom'},
+    xaxis={'title':{'text':'MODEL',
+                    'font_size':14},
+           'tickfont_size':12,
+           'rangemode':'nonnegative',
+           'showgrid':True},
+    yaxis={'title':{'text':'PUMS',
+                    'font_size':14},
+           'tickfont_size':12,
+           'rangemode':'nonnegative',
+           'showgrid':True},
+    font={'family':'Arial',
+          'color':'black'},
+)
+fig.write_html(path+'POP/validation/hhidpt.html',include_plotlyjs='cdn')
 
 # Check HHTT
 k=pd.read_csv(path+'ACS/hhtt.csv',dtype=float,converters={'CT':str})
 k.columns=['CT','TOTAL','MOE']
 k=pd.merge(dfhh.groupby(['CT'],as_index=False).agg({'TOTAL':'sum'}),k,how='inner',on=['CT'])
 k=k.sort_values('TOTAL_y').reset_index(drop=True)
-p=px.scatter(k,x='TOTAL_x',y='TOTAL_y')
-p.show()
+acc=len(k[(k['TOTAL_x']<=k['TOTAL_y']+k['MOE'])&(k['TOTAL_x']>=k['TOTAL_y']-k['MOE'])])/len(k)
+rmse=np.sqrt(sum((k['TOTAL_x']-k['TOTAL_y'])**2)/len(k))
+val.loc[val['FIELD']=='HHTT','ACCURACY']=acc
+val.loc[val['FIELD']=='HHTT','RMSE']=rmse
+fig=go.Figure()
+fig=fig.add_trace(go.Scattergl(name='ACS vs MODEL',
+                               x=k['TOTAL_x'],
+                               y=k['TOTAL_y'],
+                               mode='markers',
+                               marker={'color':'rgba(44,127,184,1)',
+                                       'size':5},
+                               hovertemplate='MODEL: %{x:.0f}<br>PUMS: %{y:.0f}'))
+fig=fig.add_trace(go.Scattergl(name='OPTIMAL',
+                               x=[0,max(k['TOTAL_x'])],
+                               y=[0,max(k['TOTAL_x'])],
+                               mode='lines',
+                               line={'color':'rgba(215,25,28,1)',
+                                     'width':2}))
+fig.update_layout(
+    template='plotly_white',
+    title={'text':'HHTT (ACCURACY: '+format(acc*100,'.2f')+'%; '+'RMSE: '+format(rmse,'.2f')+')',
+           'font_size':20,
+           'x':0.5,
+           'xanchor':'center'},
+    legend={'orientation':'h',
+            'title_text':'',
+            'font_size':16,
+            'x':0.5,
+            'xanchor':'center',
+            'y':1,
+            'yanchor':'bottom'},
+    xaxis={'title':{'text':'MODEL',
+                    'font_size':14},
+           'tickfont_size':12,
+           'rangemode':'nonnegative',
+           'showgrid':True},
+    yaxis={'title':{'text':'ACS',
+                    'font_size':14},
+           'tickfont_size':12,
+           'rangemode':'nonnegative',
+           'showgrid':True},
+    font={'family':'Arial',
+          'color':'black'},
+)
+fig.write_html(path+'POP/validation/hhttpt.html',include_plotlyjs='cdn')
 fig=go.Figure()
 fig=fig.add_trace(go.Scattergl(name='ACS',
                                x=list(k.index)+list(k.index[::-1]),
                                y=list(k['TOTAL_y']+k['MOE'])+list((k['TOTAL_y']-k['MOE'])[::-1]),
                                fill='toself',
-                               fillcolor='rgba(0,0,255,0.5)',
-                               line=dict(color='rgba(255,255,255,0)')))
+                               fillcolor='rgba(44,127,184,1)',
+                               line={'color':'rgba(255,255,255,0)'}))
 fig=fig.add_trace(go.Scattergl(name='MODEL',
                                x=k.index,
                                y=k['TOTAL_x'],
-                               mode='lines'))
-fig.show()
-print(len(k[(k['TOTAL_x']<=k['TOTAL_y']+k['MOE'])&(k['TOTAL_x']>=k['TOTAL_y']-k['MOE'])])/len(k))
-print(np.sqrt(sum((k['TOTAL_x']-k['TOTAL_y'])**2)/len(k)))
+                               mode='lines',
+                               line={'color':'rgba(215,25,28,1)'}))
+fig.update_layout(
+    template='plotly_white',
+    title={'text':'HHTT (ACCURACY: '+format(acc*100,'.2f')+'%; '+'RMSE: '+format(rmse,'.2f')+')',
+           'font_size':20,
+           'x':0.5,
+           'xanchor':'center'},
+    legend={'orientation':'h',
+            'title_text':'',
+            'font_size':16,
+            'x':0.5,
+            'xanchor':'center',
+            'y':1,
+            'yanchor':'bottom'},
+    xaxis={'title':{'text':'INDEX',
+                    'font_size':14},
+           'tickfont_size':12,
+           'rangemode':'nonnegative',
+           'showgrid':True},
+    yaxis={'title':{'text':'VALUE',
+                    'font_size':14},
+           'tickfont_size':12,
+           'rangemode':'nonnegative',
+           'showgrid':True},
+    font={'family':'Arial',
+          'color':'black'},
+)
+fig.write_html(path+'POP/validation/hhttln.html',include_plotlyjs='cdn')
 
 # Check HHOCC
 tptest=dfhh.copy()
@@ -160,22 +270,90 @@ k=k[['CT','HHOCC_x','TOTAL_x','TOTAL_y']].reset_index(drop=True)
 k.columns=['CT','HHOCC','TOTAL','MOE']
 k=pd.merge(tptest.groupby(['CT','HHOCC'],as_index=False).agg({'TOTAL':'sum'}),k,how='inner',on=['CT','HHOCC'])
 k=k.sort_values('TOTAL_y').reset_index(drop=True)
-p=px.scatter(k,x='TOTAL_x',y='TOTAL_y')
-p.show()
+acc=len(k[(k['TOTAL_x']<=k['TOTAL_y']+k['MOE'])&(k['TOTAL_x']>=k['TOTAL_y']-k['MOE'])])/len(k)
+rmse=np.sqrt(sum((k['TOTAL_x']-k['TOTAL_y'])**2)/len(k))
+val.loc[val['FIELD']=='HHOCC','ACCURACY']=acc
+val.loc[val['FIELD']=='HHOCC','RMSE']=rmse
+fig=go.Figure()
+fig=fig.add_trace(go.Scattergl(name='ACS vs MODEL',
+                               x=k['TOTAL_x'],
+                               y=k['TOTAL_y'],
+                               mode='markers',
+                               marker={'color':'rgba(44,127,184,1)',
+                                       'size':5},
+                               hovertemplate='MODEL: %{x:.0f}<br>PUMS: %{y:.0f}'))
+fig=fig.add_trace(go.Scattergl(name='OPTIMAL',
+                               x=[0,max(k['TOTAL_x'])],
+                               y=[0,max(k['TOTAL_x'])],
+                               mode='lines',
+                               line={'color':'rgba(215,25,28,1)',
+                                     'width':2}))
+fig.update_layout(
+    template='plotly_white',
+    title={'text':'HHOCC (ACCURACY: '+format(acc*100,'.2f')+'%; '+'RMSE: '+format(rmse,'.2f')+')',
+           'font_size':20,
+           'x':0.5,
+           'xanchor':'center'},
+    legend={'orientation':'h',
+            'title_text':'',
+            'font_size':16,
+            'x':0.5,
+            'xanchor':'center',
+            'y':1,
+            'yanchor':'bottom'},
+    xaxis={'title':{'text':'MODEL',
+                    'font_size':14},
+           'tickfont_size':12,
+           'rangemode':'nonnegative',
+           'showgrid':True},
+    yaxis={'title':{'text':'ACS',
+                    'font_size':14},
+           'tickfont_size':12,
+           'rangemode':'nonnegative',
+           'showgrid':True},
+    font={'family':'Arial',
+          'color':'black'},
+)
+fig.write_html(path+'POP/validation/hhoccpt.html',include_plotlyjs='cdn')
 fig=go.Figure()
 fig=fig.add_trace(go.Scattergl(name='ACS',
                                x=list(k.index)+list(k.index[::-1]),
                                y=list(k['TOTAL_y']+k['MOE'])+list((k['TOTAL_y']-k['MOE'])[::-1]),
                                fill='toself',
-                               fillcolor='rgba(0,0,255,0.5)',
-                               line=dict(color='rgba(255,255,255,0)')))
+                               fillcolor='rgba(44,127,184,1)',
+                               line={'color':'rgba(255,255,255,0)'}))
 fig=fig.add_trace(go.Scattergl(name='MODEL',
                                x=k.index,
                                y=k['TOTAL_x'],
-                               mode='lines'))
-fig.show()
-print(len(k[(k['TOTAL_x']<=k['TOTAL_y']+k['MOE'])&(k['TOTAL_x']>=k['TOTAL_y']-k['MOE'])])/len(k))
-print(np.sqrt(sum((k['TOTAL_x']-k['TOTAL_y'])**2)/len(k)))
+                               mode='lines',
+                               line={'color':'rgba(215,25,28,1)'}))
+fig.update_layout(
+    template='plotly_white',
+    title={'text':'HHOCC (ACCURACY: '+format(acc*100,'.2f')+'%; '+'RMSE: '+format(rmse,'.2f')+')',
+           'font_size':20,
+           'x':0.5,
+           'xanchor':'center'},
+    legend={'orientation':'h',
+            'title_text':'',
+            'font_size':16,
+            'x':0.5,
+            'xanchor':'center',
+            'y':1,
+            'yanchor':'bottom'},
+    xaxis={'title':{'text':'INDEX',
+                    'font_size':14},
+           'tickfont_size':12,
+           'rangemode':'nonnegative',
+           'showgrid':True},
+    yaxis={'title':{'text':'VALUE',
+                    'font_size':14},
+           'tickfont_size':12,
+           'rangemode':'nonnegative',
+           'showgrid':True},
+    font={'family':'Arial',
+          'color':'black'},
+)
+fig.write_html(path+'POP/validation/hhoccln.html',include_plotlyjs='cdn')
 
 # Check HHSIZE
 tptest=pd.merge(dfhh,pumshh[['HHID','HHSIZE']],how='inner',on='HHID')
@@ -189,22 +367,91 @@ k=k[['CT','HHSIZE_x','TOTAL_x','TOTAL_y']].reset_index(drop=True)
 k.columns=['CT','HHSIZE','TOTAL','MOE']
 k=pd.merge(tptest.groupby(['CT','HHSIZE'],as_index=False).agg({'TOTAL':'sum'}),k,how='inner',on=['CT','HHSIZE'])
 k=k.sort_values('TOTAL_y').reset_index(drop=True)
-p=px.scatter(k,x='TOTAL_x',y='TOTAL_y')
-p.show()
+acc=len(k[(k['TOTAL_x']<=k['TOTAL_y']+k['MOE'])&(k['TOTAL_x']>=k['TOTAL_y']-k['MOE'])])/len(k)
+rmse=np.sqrt(sum((k['TOTAL_x']-k['TOTAL_y'])**2)/len(k))
+val.loc[val['FIELD']=='HHSIZE','ACCURACY']=acc
+val.loc[val['FIELD']=='HHSIZE','RMSE']=rmse
+fig=go.Figure()
+fig=fig.add_trace(go.Scattergl(name='ACS vs MODEL',
+                               x=k['TOTAL_x'],
+                               y=k['TOTAL_y'],
+                               mode='markers',
+                               marker={'color':'rgba(44,127,184,1)',
+                                       'size':5},
+                               hovertemplate='MODEL: %{x:.0f}<br>PUMS: %{y:.0f}'))
+fig=fig.add_trace(go.Scattergl(name='OPTIMAL',
+                               x=[0,max(k['TOTAL_x'])],
+                               y=[0,max(k['TOTAL_x'])],
+                               mode='lines',
+                               line={'color':'rgba(215,25,28,1)',
+                                     'width':2}))
+fig.update_layout(
+    template='plotly_white',
+    title={'text':'HHSIZE (ACCURACY: '+format(acc*100,'.2f')+'%; '+'RMSE: '+format(rmse,'.2f')+')',
+           'font_size':20,
+           'x':0.5,
+           'xanchor':'center'},
+    legend={'orientation':'h',
+            'title_text':'',
+            'font_size':16,
+            'x':0.5,
+            'xanchor':'center',
+            'y':1,
+            'yanchor':'bottom'},
+    xaxis={'title':{'text':'MODEL',
+                    'font_size':14},
+           'tickfont_size':12,
+           'rangemode':'nonnegative',
+           'showgrid':True},
+    yaxis={'title':{'text':'ACS',
+                    'font_size':14},
+           'tickfont_size':12,
+           'rangemode':'nonnegative',
+           'showgrid':True},
+    font={'family':'Arial',
+          'color':'black'},
+)
+fig.write_html(path+'POP/validation/hhsizept.html',include_plotlyjs='cdn')
 fig=go.Figure()
 fig=fig.add_trace(go.Scattergl(name='ACS',
                                x=list(k.index)+list(k.index[::-1]),
                                y=list(k['TOTAL_y']+k['MOE'])+list((k['TOTAL_y']-k['MOE'])[::-1]),
                                fill='toself',
-                               fillcolor='rgba(0,0,255,0.5)',
-                               line=dict(color='rgba(255,255,255,0)')))
+                               fillcolor='rgba(44,127,184,1)',
+                               line={'color':'rgba(255,255,255,0)'}))
 fig=fig.add_trace(go.Scattergl(name='MODEL',
                                x=k.index,
                                y=k['TOTAL_x'],
-                               mode='lines'))
-fig.show()
-print(len(k[(k['TOTAL_x']<=k['TOTAL_y']+k['MOE'])&(k['TOTAL_x']>=k['TOTAL_y']-k['MOE'])])/len(k))
-print(np.sqrt(sum((k['TOTAL_x']-k['TOTAL_y'])**2)/len(k)))
+                               mode='lines',
+                               line={'color':'rgba(215,25,28,0.2)',
+                                     'width':1}))
+fig.update_layout(
+    template='plotly_white',
+    title={'text':'HHSIZE (ACCURACY: '+format(acc*100,'.2f')+'%; '+'RMSE: '+format(rmse,'.2f')+')',
+           'font_size':20,
+           'x':0.5,
+           'xanchor':'center'},
+    legend={'orientation':'h',
+            'title_text':'',
+            'font_size':16,
+            'x':0.5,
+            'xanchor':'center',
+            'y':1,
+            'yanchor':'bottom'},
+    xaxis={'title':{'text':'INDEX',
+                    'font_size':14},
+           'tickfont_size':12,
+           'rangemode':'nonnegative',
+           'showgrid':True},
+    yaxis={'title':{'text':'VALUE',
+                    'font_size':14},
+           'tickfont_size':12,
+           'rangemode':'nonnegative',
+           'showgrid':True},
+    font={'family':'Arial',
+          'color':'black'},
+)
+fig.write_html(path+'POP/validation/hhsizeln.html',include_plotlyjs='cdn')
 
 # Check HHTYPE
 tptest=pd.merge(dfhh,pumshh[['HHID','HHTYPE']],how='inner',on='HHID')
