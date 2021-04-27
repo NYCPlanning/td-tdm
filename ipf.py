@@ -25,7 +25,7 @@ pumshh=pd.read_csv(path+'PUMS/pumshh.csv',dtype=str,converters={'WGTP':float})
 pumsppgq=pd.read_csv(path+'PUMS/pumsppgq.csv',dtype=str,converters={'PWGTP':float})
 pumsppgq=pumsppgq.groupby(['HHID','PUMA'],as_index=False).agg({'PWGTP':'sum'}).reset_index(drop=True)
 # i='3603903' 142
-for i in bpmpuma[0:10]:
+for i in bpmpuma:
     ct=geoxwalk.loc[geoxwalk['PUMA2010']==i,'CensusTract2010'].unique()
     # ct=ct[ct!='36085008900']
     
@@ -76,7 +76,7 @@ for i in bpmpuma[0:10]:
     tpgq.to_csv(path+'POP/tpgq/'+i+'.csv',index=False)
 
 dfhh=[]
-for i in bpmpuma[0:10]:
+for i in bpmpuma:
     tphh=pd.read_csv(path+'POP/tphh/'+i+'.csv',dtype=str,converters={'TOTAL':float})
     dfhh+=[tphh]
 dfhh=pd.concat(dfhh,axis=0,ignore_index=True)
@@ -87,7 +87,7 @@ dfhh=dfhh[['HHID','CT','HHGQ','HHINC','TOTAL']].reset_index(drop=True)
 dfhh.to_csv(path+'POP/dfhh.csv',index=False)
 
 dfhhgq=[]
-for i in bpmpuma[0:10]:
+for i in bpmpuma:
     tpgq=pd.read_csv(path+'POP/tpgq/'+i+'.csv',dtype=str,converters={'TOTAL':float})
     dfhhgq+=[tpgq]  
 dfhhgq=pd.concat(dfhhgq,axis=0,ignore_index=True)
