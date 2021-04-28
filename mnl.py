@@ -5,6 +5,7 @@ import sklearn.model_selection
 import sklearn.linear_model
 import sklearn.tree
 import sklearn.ensemble
+import sklearn.neural_network
 import statsmodels.api as sm
 import statsmodels.formula.api as smf
 import matplotlib.pyplot as plt
@@ -18,7 +19,7 @@ path='C:/Users/mayij/Desktop/DOC/DCP2021/TRAVEL DEMAND MODEL/'
 pio.renderers.default = "browser"
 
 
-
+# Household
 rhtshh=pd.read_csv(path+'RHTS/HH_Public.csv',dtype=str)
 rhtshh['HHID']=rhtshh['SAMPN'].copy()
 rhtshh['WGTP']=pd.to_numeric(rhtshh['HH_WHT2'])
@@ -45,6 +46,7 @@ rhtshh['HHVEH']=np.where(rhtshh['HHVEH']=='0','VEH0',
                 np.where(rhtshh['HHVEH']=='3','VEH3','VEH4'))))
 rhtshh=rhtshh[['HHID','WGTP','HHSIZE','HHINC','HHSTR','HHVEH']].reset_index(drop=True)
 
+# Person
 rhtspp=pd.read_csv(path+'RHTS/PER_Public.csv',dtype=str,encoding='latin-1')
 rhtspp['PPID']=rhtspp['SAMPN']+'|'+rhtspp['PERNO']
 rhtspp['HHID']=rhtspp['SAMPN'].copy()
@@ -126,41 +128,147 @@ rhtspp=rhtspp[rhtspp['LIC']!='RF'].reset_index(drop=True)
 rhtspp['PPLIC']=np.where(pd.isna(rhtspp['LIC']),'U16',
                 np.where(rhtspp['LIC']=='Yes','YES',
                 np.where(rhtspp['LIC']=='No','NO','OTH')))
-rhtspp['PPTRIPS']=pd.to_numeric(rhtspp['PTRIPS'])
+rhtspp['PPTRIPS']=np.where(rhtspp['PTRIPS']=='0','TRIP0',
+                  np.where(rhtspp['PTRIPS']=='2','TRIP2',
+                  np.where(rhtspp['PTRIPS']=='3','TRIP3',
+                  np.where(rhtspp['PTRIPS']=='4','TRIP4','TRIPO'))))
+# rhtspp['PPTRIPS']=pd.to_numeric(rhtspp['PTRIPS'])
 rhtspp=rhtspp[['PPID','HHID','PWGTP','PPSEX','PPAGE','PPRACE','PPSCH','PPIND','PPLIC','PPTRIPS']].reset_index(drop=True)
 
 
+rhtstrip=pd.read_csv(path+'RHTS/LINKED_Public.csv',dtype=str)
+rhtstrip['TOURID']=rhtstrip['SAMPN']+'|'+rhtstrip['PERNO']+'|'+rhtstrip['TOUR_ID']
+rhtstrip['TRIPID']=rhtstrip['SAMPN']+'|'+rhtstrip['PERNO']+'|'+rhtstrip['PLANO']
 
-df=pd.merge(rhtspp,rhtshh,how='inner',on='HHID')
-df=df[df['PPLIC']!='U16'].reset_index(drop=True)
-df=pd.concat([df[['PWGTP','PPLIC']],pd.get_dummies(df[['PPSEX','PPAGE','PPRACE','PPSCH','PPIND','HHSIZE',
-                                                       'HHINC','HHSTR','HHVEH']],drop_first=True)],axis=1,ignore_index=False)
-trainx=df.drop(['PWGTP','PPLIC'],axis=1)
-trainy=df['PPLIC']
-trainwt=df['PWGTP']
-reg=sklearn.linear_model.LogisticRegression(max_iter=1000).fit(trainx,trainy,trainwt)
-sm.MNLogit(trainy,sm.add_constant(trainx)).fit().summary()
+k=rhtstrip.groupby('TRIPID').agg({'PLANO':'count'})
 
-tp=df[['PPLIC']].reset_index(drop=True)
-tp['PRED']=reg.predict(trainx)
-len(tp[tp['PPLIC']==tp['PRED']])/len(tp)
+k=rhtstrip[(rhtstrip['SAMPN']=='4133756')&(rhtstrip['PERNO']=='2')&(rhtstrip['TOUR_ID']=='1')]
+
 
 
 
 
 df=pd.merge(rhtspp,rhtshh,how='inner',on='HHID')
-df=df[df['PPTRIPS']<=10].reset_index(drop=True)
-df=pd.concat([df[['PWGTP','PPTRIPS']],pd.get_dummies(df[['PPSEX','PPAGE','PPRACE','PPSCH','PPIND',
-                                                         'HHSIZE','HHINC','HHSTR','HHVEH']],drop_first=True)],axis=1,ignore_index=False)
-trainx=df.drop(['PWGTP','PPTRIPS'],axis=1)
-trainy=df['PPTRIPS']
-trainwt=df['PWGTP']
-reg=sklearn.linear_model.LinearRegression().fit(trainx,trainy,trainwt)
-sm.OLS(trainy,sm.add_constant(trainx)).fit().summary()
+df['PPIND']=np.where(df['PPIND']=='U16','U16',
+            np.where(df['PPIND']=='NLF','NLF',
+            np.where(df['PPIND']=='CUP','CUP','EMP')))
 
-tp=df[['PPTRIPS']].reset_index(drop=True)
-tp['PRED']=reg.predict(trainx)
-px.scatter(tp,x='PPTRIPS',y='PRED')
+xtrain=pd.get_dummies(df[['PPIND']],drop_first=True)
+ytrain=df[['PPTRIPS']]
+sm.MNLogit(ytrain,sm.add_constant(xtrain)).fit().summary()
+
+
+df=df.groupby(['PPSEX','PPAGE','PPRACE','PPSCH','PPIND','HHSIZE','HHINC','HHSTR','HHVEH'],as_index=False).agg({'PPID':'count'}).reset_index(drop=True)
+df.PPID.value_counts(dropna=False)
+
+
+
+
+
+
+
+
+
+
+# LIC
+# Data Split
+df=pd.merge(rhtspp,rhtshh,how='inner',on='HHID')
+xtrain,xtest,ytrain,ytest=sklearn.model_selection.train_test_split(df[['PPSEX','PPAGE','PPRACE',
+                                                                       'PPSCH','PPIND','HHSIZE',
+                                                                       'HHINC','HHSTR','HHVEH']],
+                                                                   df['PPLIC'],test_size=0.5)
+xtrain=pd.get_dummies(xtrain[['PPSEX','PPAGE','PPRACE','PPSCH','PPIND','HHSIZE','HHINC','HHSTR','HHVEH']],drop_first=True)
+xtest=pd.get_dummies(xtest[['PPSEX','PPAGE','PPRACE','PPSCH','PPIND','HHSIZE','HHINC','HHSTR','HHVEH']],drop_first=True)
+
+# NN
+nn=sklearn.neural_network.MLPClassifier().fit(xtrain,ytrain)
+ypred=pd.DataFrame({'train':ytrain,'pred':nn.predict(xtrain)})
+print(sklearn.metrics.classification_report(ytrain,ypred['pred']))
+ypred=pd.DataFrame({'test':ytest,'pred':nn.predict(xtest)})
+print(sklearn.metrics.classification_report(ytest,ypred['pred']))
+
+# MNL
+reg=sklearn.linear_model.LogisticRegression().fit(xtrain,ytrain)
+sm.MNLogit(ytrain,sm.add_constant(xtrain)).fit().summary()
+ypred=pd.DataFrame({'train':ytrain,'pred':reg.predict(xtrain)})
+print(sklearn.metrics.classification_report(ytrain,ypred['pred']))
+ypred=pd.DataFrame({'test':ytest,'pred':reg.predict(xtest)})
+print(sklearn.metrics.classification_report(ytest,ypred['pred']))
+
+
+
+
+
+# TRIPS
+# Data Split
+df=pd.merge(rhtspp,rhtshh,how='inner',on='HHID')
+xtrain,xtest,ytrain,ytest=sklearn.model_selection.train_test_split(df[['PPSEX','PPAGE','PPRACE',
+                                                                       'PPSCH','PPIND','HHSIZE',
+                                                                       'HHINC','HHSTR','HHVEH']],
+                                                                   df['PPTRIPS'],test_size=0.5)
+xtrain=pd.get_dummies(xtrain[['PPSEX','PPAGE','PPRACE','PPSCH','PPIND','HHSIZE','HHINC','HHSTR','HHVEH']],drop_first=True)
+xtest=pd.get_dummies(xtest[['PPSEX','PPAGE','PPRACE','PPSCH','PPIND','HHSIZE','HHINC','HHSTR','HHVEH']],drop_first=True)
+
+# NN
+nn=sklearn.neural_network.MLPClassifier().fit(xtrain,ytrain)
+ypred=pd.DataFrame({'train':ytrain,'pred':nn.predict(xtrain)})
+print(sklearn.metrics.classification_report(ytrain,ypred['pred']))
+ypred=pd.DataFrame({'test':ytest,'pred':nn.predict(xtest)})
+print(sklearn.metrics.classification_report(ytest,ypred['pred']))
+
+# MNL
+reg=sklearn.linear_model.LogisticRegression().fit(xtrain,ytrain)
+sm.MNLogit(ytrain,sm.add_constant(xtrain)).fit().summary()
+ypred=pd.DataFrame({'train':ytrain,'pred':reg.predict(xtrain)})
+print(sklearn.metrics.classification_report(ytrain,ypred['pred']))
+ypred=pd.DataFrame({'test':ytest,'pred':reg.predict(xtest)})
+print(sklearn.metrics.classification_report(ytest,ypred['pred']))
+
+
+
+
+
+
+
+
+# MNL
+xtrain=pd.get_dummies(df[['PPSEX','PPAGE','PPRACE','PPSCH','PPIND','HHSIZE','HHINC','HHSTR','HHVEH']],drop_first=True)
+ytrain=df[['PPTRIPS']]
+reg=sklearn.linear_model.LogisticRegression(max_iter=1000).fit(xtrain,ytrain)
+sm.MNLogit(ytrain,sm.add_constant(xtrain)).fit().summary()
+ypred=pd.DataFrame({'train':ytrain,'pred':reg.predict(xtrain)})
+print(sklearn.metrics.classification_report(ytrain,ypred['pred']))
+
+df.PPTRIPS.value_counts(dropna=False)
+
+
+
+df=pd.merge(rhtspp,rhtshh,how='inner',on='HHID')
+df=df[df['PPTRIPS']<=6].reset_index(drop=True)
+xtrain,xtest,ytrain,ytest=sklearn.model_selection.train_test_split(df[['PPSEX','PPAGE','PPRACE',
+                                                                       'PPSCH','PPIND','HHSIZE',
+                                                                       'HHINC','HHSTR','HHVEH']],
+                                                                   df['PPTRIPS'],test_size=0.5)
+xtrain=pd.get_dummies(xtrain[['PPSEX','PPAGE','PPRACE','PPSCH','PPIND','HHSIZE','HHINC','HHSTR','HHVEH']],drop_first=True)
+xtest=pd.get_dummies(xtest[['PPSEX','PPAGE','PPRACE','PPSCH','PPIND','HHSIZE','HHINC','HHSTR','HHVEH']],drop_first=True)
+reg=sklearn.linear_model.LinearRegression().fit(xtrain,ytrain)
+sm.OLS(ytrain,sm.add_constant(xtrain)).fit().summary()
+ypred=pd.DataFrame({'train':ytrain,'pred':[round(x) for x in reg.predict(xtrain)]})
+print(sklearn.metrics.classification_report(ytrain,ypred['pred']))
+ypred=pd.DataFrame({'test':ytest,'pred':[round(x) for x in reg.predict(xtest)]})
+print(sklearn.metrics.classification_report(ytest,ypred['pred']))
+
+
+
+
+
+
+
+
+
+
+
+
 
 
 
