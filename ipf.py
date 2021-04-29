@@ -101,11 +101,12 @@ pumspp=pd.read_csv(path+'PUMS/pumspp.csv',dtype=str,converters={'PWGTP':float})
 dfpphh=pd.merge(pumspp,dfhh[['HHID','CT','HHGQ','TOTAL']],how='inner',on=['HHID'])
 dfpphh=pd.merge(dfpphh,pumshh,how='inner',on=['HHID','PUMA'])
 dfpphh=dfpphh[['PPID','HHID','PUMA','CT','HHGQ','HHSIZE','HHTYPE','HHINC','HHTEN','HHSTR','HHBLT',
-               'HHBED','HHVEH','PPSEX','PPAGE','PPRACE','PPEDU','PPSCH','PPIND','PPMODE','TOTAL']].reset_index(drop=True)
+               'HHBED','HHVEH','PPSEX','PPAGE','PPRACE','PPEDU','PPSCH','PPIND','PPMODE','PPTIME',
+               'PPDEPART','TOTAL']].reset_index(drop=True)
 pumsppgq=pd.read_csv(path+'PUMS/pumsppgq.csv',dtype=str,converters={'PWGTP':float})
 dfppgq=pd.merge(pumsppgq,dfhhgq[['HHID','CT','HHGQ','TOTAL']],how='inner',on=['HHID'])
 dfppgq=dfppgq[['PPID','HHID','PUMA','CT','HHGQ','PPSEX','PPAGE','PPRACE','PPEDU','PPSCH','PPIND',
-               'PPMODE','TOTAL']].reset_index(drop=True)
+               'PPMODE','PPTIME','PPDEPART','TOTAL']].reset_index(drop=True)
 dfpp=pd.concat([dfpphh,dfppgq],axis=0,ignore_index=True)
 dfpp=dfpp.fillna('GQ')
 dfpp.to_csv(path+'POP/dfpp.csv',index=False)
@@ -114,8 +115,9 @@ dfpp.to_csv(path+'POP/dfpp.csv',index=False)
 
 # Validation
 val=pd.DataFrame(columns=['FIELD','ACCURACY','RMSE'])
-val['FIELD']=['HHID','HHTT','HHOCC','HHSIZE','HHTYPE','HHINC','HHTEN','HHSTR','HHBLT','HHBED','HHVEH',
-              'HHGQ','GQTT','PPID','PPTT','PPSEX','PPAGE','PPRACE','PPEDU','PPSCH','PPIND','PPMODE']
+val['FIELD']=['HHID','HHTT','HHOCC','HHSIZE','HHTYPE','HHINC','HHTEN','HHSTR','HHBLT','HHBED',
+              'HHVEH','HHGQ','GQTT','PPID','PPTT','PPSEX','PPAGE','PPRACE','PPEDU','PPSCH','PPIND',
+              'PPMODE','PPTIME','PPDEPART']
 
 # Check Household
 pumshh=pd.read_csv(path+'PUMS/pumshh.csv',dtype=str,converters={'WGTP':float})
@@ -2266,6 +2268,220 @@ fig.update_layout(
           'color':'black'},
 )
 fig.write_html(path+'POP/validation/ppmodeci.html',include_plotlyjs='cdn')
+
+# Check PPTIME
+k=pd.read_csv(path+'ACS/pptime.csv',dtype=float,converters={'CT':str})
+k=k.melt(id_vars=['CT'],value_vars=['NWHM','NWHMM','TM01','TM01M','TM02','TM02M','TM03','TM03M',
+                                    'TM04','TM04M','TM05','TM05M','TM06','TM06M','TM07','TM07M',
+                                    'TM08','TM08M','TM09','TM09M','TM10','TM10M','TM11','TM11M',
+                                    'TM12','TM12M'],var_name='PPTIME',value_name='TOTAL')
+k=pd.merge(k[np.isin(k['PPTIME'],['NWHM','TM01','TM02','TM03','TM04','TM05','TM06','TM07','TM08',
+                                  'TM09','TM10','TM11','TM12'])],
+           k[np.isin(k['PPTIME'],['NWHMM','TM01M','TM02M','TM03M','TM04M','TM05M','TM06M','TM07M',
+                                  'TM08M','TM09M','TM10M','TM11M','TM12M'])],how='inner',on='CT')
+k=k[(k['PPTIME_x']+'M')==k['PPTIME_y']].reset_index(drop=True)
+k=k[['CT','PPTIME_x','TOTAL_x','TOTAL_y']].reset_index(drop=True)
+k.columns=['CT','PPTIME','TOTAL','MOE']
+k=pd.merge(dfpp.groupby(['CT','PPTIME'],as_index=False).agg({'TOTAL':'sum'}),k,how='inner',on=['CT','PPTIME'])
+k=k.sort_values('TOTAL_y').reset_index(drop=True)
+k['HOVER']='CT: '+k['CT']+'<br>'+'PPTIME: '+k['PPTIME']+'<br>'+'MODEL: '+k['TOTAL_x'].astype(int).astype(str)+'<br>'+'ACS: '+k['TOTAL_y'].astype(int).astype(str)+'<br>'+'MOE: '+k['MOE'].astype(int).astype(str)
+acc=len(k[(k['TOTAL_x']<=k['TOTAL_y']+k['MOE'])&(k['TOTAL_x']>=k['TOTAL_y']-k['MOE'])])/len(k)
+rmse=np.sqrt(sum((k['TOTAL_x']-k['TOTAL_y'])**2)/len(k))
+val.loc[val['FIELD']=='PPTIME','ACCURACY']=acc
+val.loc[val['FIELD']=='PPTIME','RMSE']=rmse
+fig=go.Figure()
+fig=fig.add_trace(go.Scattergl(name='ACS vs MODEL',
+                               x=k['TOTAL_x'],
+                               y=k['TOTAL_y'],
+                               mode='markers',
+                               marker={'color':'rgba(44,127,184,1)',
+                                       'size':5},
+                               hoverinfo='text',
+                               hovertext=k['HOVER']))
+fig=fig.add_trace(go.Scattergl(name='OPTIMAL',
+                               x=[0,max(k['TOTAL_x'])],
+                               y=[0,max(k['TOTAL_x'])],
+                               mode='lines',
+                               line={'color':'rgba(215,25,28,1)',
+                                     'width':2},
+                               hoverinfo='skip'))
+fig.update_layout(
+    template='plotly_white',
+    title={'text':'PPTIME (ACCURACY: '+format(acc*100,'.2f')+'%; '+'RMSE: '+format(rmse,'.2f')+')',
+           'font_size':20,
+           'x':0.5,
+           'xanchor':'center'},
+    legend={'orientation':'h',
+            'title_text':'',
+            'font_size':16,
+            'x':0.5,
+            'xanchor':'center',
+            'y':1,
+            'yanchor':'bottom'},
+    xaxis={'title':{'text':'MODEL',
+                    'font_size':14},
+           'tickfont_size':12,
+           'rangemode':'nonnegative',
+           'showgrid':True},
+    yaxis={'title':{'text':'ACS',
+                    'font_size':14},
+           'tickfont_size':12,
+           'rangemode':'nonnegative',
+           'showgrid':True},
+    font={'family':'Arial',
+          'color':'black'},
+)
+fig.write_html(path+'POP/validation/pptimept.html',include_plotlyjs='cdn')
+fig=go.Figure()
+fig=fig.add_trace(go.Scattergl(name='ACS',
+                               x=list(k.index)+list(k.index[::-1]),
+                               y=list(k['TOTAL_y']+k['MOE'])+list((k['TOTAL_y']-k['MOE'])[::-1]),
+                               fill='toself',
+                               fillcolor='rgba(44,127,184,1)',
+                               line={'color':'rgba(255,255,255,0)'},
+                               hoverinfo='skip'))
+fig=fig.add_trace(go.Scattergl(name='MODEL',
+                               x=k.index,
+                               y=k['TOTAL_x'],
+                               mode='markers',
+                               marker={'color':'rgba(215,25,28,1)',
+                                     'size':1.5},
+                               hoverinfo='text',
+                               hovertext=k['HOVER']))
+fig.update_layout(
+    template='plotly_white',
+    title={'text':'PPTIME (ACCURACY: '+format(acc*100,'.2f')+'%; '+'RMSE: '+format(rmse,'.2f')+')',
+           'font_size':20,
+           'x':0.5,
+           'xanchor':'center'},
+    legend={'orientation':'h',
+            'title_text':'',
+            'font_size':16,
+            'x':0.5,
+            'xanchor':'center',
+            'y':1,
+            'yanchor':'bottom'},
+    xaxis={'title':{'text':'INDEX',
+                    'font_size':14},
+           'tickfont_size':12,
+           'rangemode':'nonnegative',
+           'showgrid':True},
+    yaxis={'title':{'text':'VALUE',
+                    'font_size':14},
+           'tickfont_size':12,
+           'rangemode':'nonnegative',
+           'showgrid':True},
+    font={'family':'Arial',
+          'color':'black'},
+)
+fig.write_html(path+'POP/validation/pptimeci.html',include_plotlyjs='cdn')
+
+# Check PPDEPART
+k=pd.read_csv(path+'ACS/ppdepart.csv',dtype=float,converters={'CT':str})
+k=k.melt(id_vars=['CT'],value_vars=['NWHM','NWHMM','DP01','DP01M','DP02','DP02M','DP03','DP03M',
+                                    'DP04','DP04M','DP05','DP05M','DP06','DP06M','DP07','DP07M',
+                                    'DP08','DP08M','DP09','DP09M','DP10','DP10M','DP11','DP11M',
+                                    'DP12','DP12M','DP13','DP13M','DP14','DP14M'],var_name='PPDEPART',value_name='TOTAL')
+k=pd.merge(k[np.isin(k['PPDEPART'],['NWHM','DP01','DP02','DP03','DP04','DP05','DP06','DP07','DP08',
+                                    'DP09','DP10','DP11','DP12','DP13','DP14'])],
+           k[np.isin(k['PPDEPART'],['NWHMM','DP01M','DP02M','DP03M','DP04M','DP05M','DP06M','DP07M',
+                                    'DP08M','DP09M','DP10M','DP11M','DP12M','DP13M','DP14M'])],how='inner',on='CT')
+k=k[(k['PPDEPART_x']+'M')==k['PPDEPART_y']].reset_index(drop=True)
+k=k[['CT','PPDEPART_x','TOTAL_x','TOTAL_y']].reset_index(drop=True)
+k.columns=['CT','PPDEPART','TOTAL','MOE']
+k=pd.merge(dfpp.groupby(['CT','PPDEPART'],as_index=False).agg({'TOTAL':'sum'}),k,how='inner',on=['CT','PPDEPART'])
+k=k.sort_values('TOTAL_y').reset_index(drop=True)
+k['HOVER']='CT: '+k['CT']+'<br>'+'PPDEPART: '+k['PPDEPART']+'<br>'+'MODEL: '+k['TOTAL_x'].astype(int).astype(str)+'<br>'+'ACS: '+k['TOTAL_y'].astype(int).astype(str)+'<br>'+'MOE: '+k['MOE'].astype(int).astype(str)
+acc=len(k[(k['TOTAL_x']<=k['TOTAL_y']+k['MOE'])&(k['TOTAL_x']>=k['TOTAL_y']-k['MOE'])])/len(k)
+rmse=np.sqrt(sum((k['TOTAL_x']-k['TOTAL_y'])**2)/len(k))
+val.loc[val['FIELD']=='PPDEPART','ACCURACY']=acc
+val.loc[val['FIELD']=='PPDEPART','RMSE']=rmse
+fig=go.Figure()
+fig=fig.add_trace(go.Scattergl(name='ACS vs MODEL',
+                               x=k['TOTAL_x'],
+                               y=k['TOTAL_y'],
+                               mode='markers',
+                               marker={'color':'rgba(44,127,184,1)',
+                                       'size':5},
+                               hoverinfo='text',
+                               hovertext=k['HOVER']))
+fig=fig.add_trace(go.Scattergl(name='OPTIMAL',
+                               x=[0,max(k['TOTAL_x'])],
+                               y=[0,max(k['TOTAL_x'])],
+                               mode='lines',
+                               line={'color':'rgba(215,25,28,1)',
+                                     'width':2},
+                               hoverinfo='skip'))
+fig.update_layout(
+    template='plotly_white',
+    title={'text':'PPDEPART (ACCURACY: '+format(acc*100,'.2f')+'%; '+'RMSE: '+format(rmse,'.2f')+')',
+           'font_size':20,
+           'x':0.5,
+           'xanchor':'center'},
+    legend={'orientation':'h',
+            'title_text':'',
+            'font_size':16,
+            'x':0.5,
+            'xanchor':'center',
+            'y':1,
+            'yanchor':'bottom'},
+    xaxis={'title':{'text':'MODEL',
+                    'font_size':14},
+           'tickfont_size':12,
+           'rangemode':'nonnegative',
+           'showgrid':True},
+    yaxis={'title':{'text':'ACS',
+                    'font_size':14},
+           'tickfont_size':12,
+           'rangemode':'nonnegative',
+           'showgrid':True},
+    font={'family':'Arial',
+          'color':'black'},
+)
+fig.write_html(path+'POP/validation/ppdepartpt.html',include_plotlyjs='cdn')
+fig=go.Figure()
+fig=fig.add_trace(go.Scattergl(name='ACS',
+                               x=list(k.index)+list(k.index[::-1]),
+                               y=list(k['TOTAL_y']+k['MOE'])+list((k['TOTAL_y']-k['MOE'])[::-1]),
+                               fill='toself',
+                               fillcolor='rgba(44,127,184,1)',
+                               line={'color':'rgba(255,255,255,0)'},
+                               hoverinfo='skip'))
+fig=fig.add_trace(go.Scattergl(name='MODEL',
+                               x=k.index,
+                               y=k['TOTAL_x'],
+                               mode='markers',
+                               marker={'color':'rgba(215,25,28,1)',
+                                     'size':1.5},
+                               hoverinfo='text',
+                               hovertext=k['HOVER']))
+fig.update_layout(
+    template='plotly_white',
+    title={'text':'PPDEPART (ACCURACY: '+format(acc*100,'.2f')+'%; '+'RMSE: '+format(rmse,'.2f')+')',
+           'font_size':20,
+           'x':0.5,
+           'xanchor':'center'},
+    legend={'orientation':'h',
+            'title_text':'',
+            'font_size':16,
+            'x':0.5,
+            'xanchor':'center',
+            'y':1,
+            'yanchor':'bottom'},
+    xaxis={'title':{'text':'INDEX',
+                    'font_size':14},
+           'tickfont_size':12,
+           'rangemode':'nonnegative',
+           'showgrid':True},
+    yaxis={'title':{'text':'VALUE',
+                    'font_size':14},
+           'tickfont_size':12,
+           'rangemode':'nonnegative',
+           'showgrid':True},
+    font={'family':'Arial',
+          'color':'black'},
+)
+fig.write_html(path+'POP/validation/ppdepartci.html',include_plotlyjs='cdn')
 
 val.to_csv(path+'POP/validation/validation.csv',index=False)
 

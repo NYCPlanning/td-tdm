@@ -259,12 +259,11 @@ pumspp.to_csv(path+'PUMS/pumspp.csv',index=False)
 
 
 
-#Travel time to work:JWMNP
 
 
-pumspp['PPTIME'].value_counts(dropna=False)
-k=pd.merge(pumspp,pumshh,how='inner',on='HHID')
-px.histogram(k, x="PPTIME", color="HHTEN",barmode='group',histnorm='percent')
+# pumspp['PPTIME'].value_counts(dropna=False)
+# k=pd.merge(pumspp,pumshh,how='inner',on='HHID')
+# px.histogram(k, x="PPTIME", color="HHTEN",barmode='group',histnorm='percent')
 
 
 
