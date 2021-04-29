@@ -490,5 +490,79 @@ df.to_csv(path+'ACS/ppmode.csv',index=False)
 
 
 
+# Time
+pptt=pd.read_csv(path+'ACS/pptt.csv',dtype=str)
+df=[]
+for i in bpm:
+    rs=requests.get('https://api.census.gov/data/2019/acs/acs5/?get=NAME,group(B08303)&for=tract:*&in=state:'+i[:2]+' county:'+i[2:]+'&key='+apikey).json()
+    rs=pd.DataFrame(rs)
+    rs.columns=rs.loc[0]
+    rs=rs.loc[1:].reset_index(drop=True)
+    rs['geoid']=[x[9:] for x in rs['GEO_ID']]
+    rs=rs[['geoid','B08303_001E','B08303_001M','B08303_002E','B08303_002M',
+           'B08303_003E','B08303_003M','B08303_004E','B08303_004M',
+           'B08303_005E','B08303_005M','B08303_006E','B08303_006M',
+           'B08303_007E','B08303_007M','B08303_008E','B08303_008M',
+           'B08303_009E','B08303_009M','B08303_010E','B08303_010M',
+           'B08303_011E','B08303_011M','B08303_012E','B08303_012M',
+           'B08303_013E','B08303_013M']].reset_index(drop=True)
+    rs.columns=['CT','TNHW','TNHWM','TM01','TM01M','TM02','TM02M','TM03','TM03M','TM04','TM04M',
+                'TM05','TM05M','TM06','TM06M','TM07','TM07M','TM08','TM08M','TM09','TM09M',
+                'TM10','TM10M','TM11','TM11M','TM12','TM12M']
+    df+=[rs]
+df=pd.concat(df,axis=0,ignore_index=True)
+df=pd.merge(pptt,df,how='left',on='CT')
+df=df.fillna(0)
+df['TT']=pd.to_numeric(df['TT'])
+df['TTM']=pd.to_numeric(df['TTM'])
+df['TNHW']=pd.to_numeric(df['TNHW'])
+df['TNHWM']=pd.to_numeric(df['TNHWM'])
+df['NWHM']=df['TT']-df['TNHW']
+df['NWHMM']=np.sqrt(df['TTM']**2+df['TNHWM']**2)
+df=df[['CT','TT','TTM','NWHM','NWHMM','TM01','TM01M','TM02','TM02M','TM03','TM03M','TM04','TM04M',
+       'TM05','TM05M','TM06','TM06M','TM07','TM07M','TM08','TM08M','TM09','TM09M','TM10','TM10M',
+       'TM11','TM11M','TM12','TM12M']].reset_index(drop=True)
+df.to_csv(path+'ACS/pptime.csv',index=False)
+
+
+
+# Departure
+pptt=pd.read_csv(path+'ACS/pptt.csv',dtype=str)
+df=[]
+for i in bpm:
+    rs=requests.get('https://api.census.gov/data/2019/acs/acs5/?get=NAME,group(B08302)&for=tract:*&in=state:'+i[:2]+' county:'+i[2:]+'&key='+apikey).json()
+    rs=pd.DataFrame(rs)
+    rs.columns=rs.loc[0]
+    rs=rs.loc[1:].reset_index(drop=True)
+    rs['geoid']=[x[9:] for x in rs['GEO_ID']]
+    rs=rs[['geoid','B08302_001E','B08302_001M','B08302_002E','B08302_002M',
+           'B08302_003E','B08302_003M','B08302_004E','B08302_004M',
+           'B08302_005E','B08302_005M','B08302_006E','B08302_006M',
+           'B08302_007E','B08302_007M','B08302_008E','B08302_008M',
+           'B08302_009E','B08302_009M','B08302_010E','B08302_010M',
+           'B08302_011E','B08302_011M','B08302_012E','B08302_012M',
+           'B08302_013E','B08302_013M','B08302_014E','B08302_014M',
+           'B08302_015E','B08302_015E']].reset_index(drop=True)
+    rs.columns=['CT','TNHW','TNHWM','DP01','DP01M','DP02','DP02M','DP03','DP03M','DP04','DP04M',
+                'DP05','DP05M','DP06','DP06M','DP07','DP07M','DP08','DP08M','DP09','DP09M',
+                'DP10','DP10M','DP11','DP11M','DP12','DP12M','DP13','DP13M','DP14','DP14M']
+    df+=[rs]
+df=pd.concat(df,axis=0,ignore_index=True)
+df=pd.merge(pptt,df,how='left',on='CT')
+df=df.fillna(0)
+df['TT']=pd.to_numeric(df['TT'])
+df['TTM']=pd.to_numeric(df['TTM'])
+df['TNHW']=pd.to_numeric(df['TNHW'])
+df['TNHWM']=pd.to_numeric(df['TNHWM'])
+df['NWHM']=df['TT']-df['TNHW']
+df['NWHMM']=np.sqrt(df['TTM']**2+df['TNHWM']**2)
+df=df[['CT','TT','TTM','NWHM','NWHMM','DP01','DP01M','DP02','DP02M','DP03','DP03M','DP04','DP04M',
+       'DP05','DP05M','DP06','DP06M','DP07','DP07M','DP08','DP08M','DP09','DP09M','DP10','DP10M',
+       'DP11','DP11M','DP12','DP12M','DP13','DP13M','DP14','DP14M']].reset_index(drop=True)
+df.to_csv(path+'ACS/ppdepart.csv',index=False)
+
+
+
+
 
 

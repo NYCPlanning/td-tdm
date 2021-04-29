@@ -216,12 +216,43 @@ pumspp['PPMODE']=np.where((pumspp['JWTRNS']=='01')&(pumspp['JWRIP']=='1'),'DA',
                  np.where(pumspp['JWTRNS']=='10','WK',
                  np.where(pumspp['JWTRNS']=='11','HM',
                  np.where(pumspp['JWTRNS']=='12','OT','NW')))))))))))))))))))))
+pumspp['JWMNP']=pd.to_numeric(pumspp['JWMNP'])
+pumspp['PPTIME']=np.where(pd.isna(pumspp['JWMNP']),'NWHM',
+                 np.where(pumspp['JWMNP']<5,'TM01',
+                 np.where(pumspp['JWMNP']<10,'TM02',
+                 np.where(pumspp['JWMNP']<15,'TM03',
+                 np.where(pumspp['JWMNP']<20,'TM04',
+                 np.where(pumspp['JWMNP']<25,'TM05',
+                 np.where(pumspp['JWMNP']<30,'TM06',
+                 np.where(pumspp['JWMNP']<35,'TM07',
+                 np.where(pumspp['JWMNP']<40,'TM08',
+                 np.where(pumspp['JWMNP']<45,'TM09',
+                 np.where(pumspp['JWMNP']<60,'TM10',
+                 np.where(pumspp['JWMNP']<90,'TM11','TM12'))))))))))))
+pumspp['JWDP']=pd.to_numeric(pumspp['JWDP'])
+pumspp['PPDEPART']=np.where(pd.isna(pumspp['JWDP']),'NWHM',
+                   np.where(pumspp['JWDP']<=18,'DP01',
+                   np.where(pumspp['JWDP']<=24,'DP02',
+                   np.where(pumspp['JWDP']<=30,'DP03',
+                   np.where(pumspp['JWDP']<=36,'DP04',
+                   np.where(pumspp['JWDP']<=42,'DP05',
+                   np.where(pumspp['JWDP']<=48,'DP06',
+                   np.where(pumspp['JWDP']<=54,'DP07',
+                   np.where(pumspp['JWDP']<=60,'DP08',
+                   np.where(pumspp['JWDP']<=66,'DP09',
+                   np.where(pumspp['JWDP']<=78,'DP10',
+                   np.where(pumspp['JWDP']<=84,'DP11',
+                   np.where(pumspp['JWDP']<=90,'DP12',
+                   np.where(pumspp['JWDP']<=114,'DP13',
+                   np.where(pumspp['JWDP']<=150,'DP14','OTH')))))))))))))))
 pumsppgq=pumspp[np.isin(pumspp['RELSHIPP'],['37','38'])].reset_index(drop=True)
-pumsppgq=pumsppgq[['PPID','HHID','PUMA','PWGTP','PPSEX','PPAGE','PPRACE','PPEDU','PPSCH','PPIND','PPMODE']].reset_index(drop=True)
+pumsppgq=pumsppgq[['PPID','HHID','PUMA','PWGTP','PPSEX','PPAGE','PPRACE','PPEDU','PPSCH','PPIND',
+                   'PPMODE','PPTIME','PPDEPART']].reset_index(drop=True)
 pumsppgq=pumsppgq.drop_duplicates(keep='first').reset_index(drop=True)
 pumsppgq.to_csv(path+'PUMS/pumsppgq.csv',index=False)
 pumspp=pumspp[~np.isin(pumspp['RELSHIPP'],['37','38'])].reset_index(drop=True)
-pumspp=pumspp[['PPID','HHID','PUMA','PWGTP','PPSEX','PPAGE','PPRACE','PPEDU','PPSCH','PPIND','PPMODE']].reset_index(drop=True)
+pumspp=pumspp[['PPID','HHID','PUMA','PWGTP','PPSEX','PPAGE','PPRACE','PPEDU','PPSCH','PPIND',
+               'PPMODE','PPTIME','PPDEPART']].reset_index(drop=True)
 pumspp=pumspp.drop_duplicates(keep='first').reset_index(drop=True)
 pumspp.to_csv(path+'PUMS/pumspp.csv',index=False)
 
@@ -230,6 +261,10 @@ pumspp.to_csv(path+'PUMS/pumspp.csv',index=False)
 
 #Travel time to work:JWMNP
 
+
+pumspp['PPTIME'].value_counts(dropna=False)
+k=pd.merge(pumspp,pumshh,how='inner',on='HHID')
+px.histogram(k, x="PPTIME", color="HHTEN",barmode='group',histnorm='percent')
 
 
 
