@@ -100,13 +100,13 @@ dfhhgq.to_csv(path+'POP/dfhhgq.csv',index=False)
 pumspp=pd.read_csv(path+'PUMS/pumspp.csv',dtype=str,converters={'PWGTP':float})
 dfpphh=pd.merge(pumspp,dfhh[['HHID','CT','HHGQ','TOTAL']],how='inner',on=['HHID'])
 dfpphh=pd.merge(dfpphh,pumshh,how='inner',on=['HHID','PUMA'])
-dfpphh=dfpphh[['PPID','HHID','PUMA','CT','HHGQ','HHSIZE','HHTYPE','HHINC','HHTEN','HHSTR','HHBLT',
-               'HHBED','HHVEH','PPSEX','PPAGE','PPRACE','PPEDU','PPSCH','PPIND','PPMODE','PPTIME',
-               'PPDEPART','TOTAL']].reset_index(drop=True)
+dfpphh=dfpphh[['PPID','HHID','PUMA','CT','POWPUMA','HHGQ','HHSIZE','HHTYPE','HHINC','HHTEN','HHSTR',
+               'HHBLT','HHBED','HHVEH','PPSEX','PPAGE','PPRACE','PPEDU','PPSCH','PPIND','PPMODE',
+               'PPTIME','PPDEPART','TOTAL']].reset_index(drop=True)
 pumsppgq=pd.read_csv(path+'PUMS/pumsppgq.csv',dtype=str,converters={'PWGTP':float})
 dfppgq=pd.merge(pumsppgq,dfhhgq[['HHID','CT','HHGQ','TOTAL']],how='inner',on=['HHID'])
-dfppgq=dfppgq[['PPID','HHID','PUMA','CT','HHGQ','PPSEX','PPAGE','PPRACE','PPEDU','PPSCH','PPIND',
-               'PPMODE','PPTIME','PPDEPART','TOTAL']].reset_index(drop=True)
+dfppgq=dfppgq[['PPID','HHID','PUMA','CT','POWPUMA','HHGQ','PPSEX','PPAGE','PPRACE','PPEDU','PPSCH',
+               'PPIND','PPMODE','PPTIME','PPDEPART','TOTAL']].reset_index(drop=True)
 dfpp=pd.concat([dfpphh,dfppgq],axis=0,ignore_index=True)
 dfpp=dfpp.fillna('GQ')
 dfpp.to_csv(path+'POP/dfpp.csv',index=False)

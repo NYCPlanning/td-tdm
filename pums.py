@@ -105,6 +105,9 @@ pumspp['HHID']=pumspp['SERIALNO'].copy()
 pumspp['PUMA']=pumspp['ST']+pumspp['PUMA']
 pumspp=pd.merge(pumspp,geoxwalk[['PUMA2010','StateCounty']].drop_duplicates(keep='first'),how='left',left_on='PUMA',right_on='PUMA2010')
 pumspp=pumspp[np.isin(pumspp['StateCounty'],bpm)].reset_index(drop=True)
+pumspp['POWPUMA']=np.where(pd.isna(pumspp['POWPUMA']),'',pumspp['POWSP']+pumspp['POWPUMA'])
+pumspp['POWPUMA']=[str(x)[1:] for x in pumspp['POWPUMA']]
+pumspp['POWPUMA']=np.where(pumspp['POWPUMA']=='','NW',pumspp['POWPUMA'])
 pumspp['PPSEX']=np.where(pumspp['SEX']=='1','MALE','FEMALE')
 pumspp['AGEP']=pd.to_numeric(pumspp['AGEP'])
 pumspp['PPAGE']=np.where(pumspp['AGEP']<=5,'AGE01',
@@ -246,16 +249,15 @@ pumspp['PPDEPART']=np.where(pd.isna(pumspp['JWDP']),'NWHM',
                    np.where(pumspp['JWDP']<=114,'DP13',
                    np.where(pumspp['JWDP']<=150,'DP14','OTH')))))))))))))))
 pumsppgq=pumspp[np.isin(pumspp['RELSHIPP'],['37','38'])].reset_index(drop=True)
-pumsppgq=pumsppgq[['PPID','HHID','PUMA','PWGTP','PPSEX','PPAGE','PPRACE','PPEDU','PPSCH','PPIND',
-                   'PPMODE','PPTIME','PPDEPART']].reset_index(drop=True)
+pumsppgq=pumsppgq[['PPID','HHID','PUMA','POWPUMA','PWGTP','PPSEX','PPAGE','PPRACE','PPEDU','PPSCH',
+                   'PPIND','PPMODE','PPTIME','PPDEPART']].reset_index(drop=True)
 pumsppgq=pumsppgq.drop_duplicates(keep='first').reset_index(drop=True)
 pumsppgq.to_csv(path+'PUMS/pumsppgq.csv',index=False)
 pumspp=pumspp[~np.isin(pumspp['RELSHIPP'],['37','38'])].reset_index(drop=True)
-pumspp=pumspp[['PPID','HHID','PUMA','PWGTP','PPSEX','PPAGE','PPRACE','PPEDU','PPSCH','PPIND',
-               'PPMODE','PPTIME','PPDEPART']].reset_index(drop=True)
+pumspp=pumspp[['PPID','HHID','PUMA','POWPUMA','PWGTP','PPSEX','PPAGE','PPRACE','PPEDU','PPSCH',
+               'PPIND','PPMODE','PPTIME','PPDEPART']].reset_index(drop=True)
 pumspp=pumspp.drop_duplicates(keep='first').reset_index(drop=True)
 pumspp.to_csv(path+'PUMS/pumspp.csv',index=False)
-
 
 
 
