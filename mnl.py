@@ -6,6 +6,8 @@ import sklearn.linear_model
 import sklearn.tree
 import sklearn.ensemble
 import sklearn.neural_network
+import sklearn.cluster
+import sklearn.decomposition
 import statsmodels.api as sm
 import statsmodels.formula.api as smf
 import matplotlib.pyplot as plt
@@ -26,6 +28,12 @@ rhtshh['WGTP']=pd.to_numeric(rhtshh['HH_WHT2'])
 rhtshh['HHSIZE']=np.where(rhtshh['HHSIZ']=='1','SIZE1',
                  np.where(rhtshh['HHSIZ']=='2','SIZE2',
                  np.where(rhtshh['HHSIZ']=='3','SIZE3','SIZE4')))
+rhtshh['HHTYPE']=np.where(rhtshh['HHSTRUC']=='1','TYPE1',
+                 np.where(rhtshh['HHSTRUC']=='2','TYPE2',
+                 np.where(rhtshh['HHSTRUC']=='3','TYPE3',
+                 np.where(rhtshh['HHSTRUC']=='4','TYPE4',
+                 np.where(rhtshh['HHSTRUC']=='5','TYPE5',
+                 np.where(rhtshh['HHSTRUC']=='6','TYPE6','OTH'))))))
 rhtshh=rhtshh[rhtshh['INCOM']!='99'].reset_index(drop=True)
 rhtshh['HHINC']=np.where(rhtshh['INCOM']=='1','INC201',
                 np.where(rhtshh['INCOM']=='2','INC202',
@@ -44,7 +52,7 @@ rhtshh['HHVEH']=np.where(rhtshh['HHVEH']=='0','VEH0',
                 np.where(rhtshh['HHVEH']=='1','VEH1',
                 np.where(rhtshh['HHVEH']=='2','VEH2',
                 np.where(rhtshh['HHVEH']=='3','VEH3','VEH4'))))
-rhtshh=rhtshh[['HHID','WGTP','HHSIZE','HHINC','HHSTR','HHVEH']].reset_index(drop=True)
+rhtshh=rhtshh[['HHID','WGTP','HHSIZE','HHTYPE','HHINC','HHSTR','HHVEH']].reset_index(drop=True)
 
 # Person
 rhtspp=pd.read_csv(path+'RHTS/PER_Public.csv',dtype=str,encoding='latin-1')
@@ -137,8 +145,91 @@ rhtspp=rhtspp[['PPID','HHID','PWGTP','PPSEX','PPAGE','PPRACE','PPSCH','PPIND','P
 
 
 rhtstrip=pd.read_csv(path+'RHTS/LINKED_Public.csv',dtype=str)
-rhtstrip['TOURID']=rhtstrip['SAMPN']+'|'+rhtstrip['PERNO']+'|'+rhtstrip['TOUR_ID']
 rhtstrip['TRIPID']=rhtstrip['SAMPN']+'|'+rhtstrip['PERNO']+'|'+rhtstrip['PLANO']
+rhtstrip['TOURID']=rhtstrip['SAMPN']+'|'+rhtstrip['PERNO']+'|'+rhtstrip['TOUR_ID']
+rhtstrip['PPID']=rhtstrip['SAMPN']+'|'+rhtstrip['PERNO']
+rhtstrip['HHID']=rhtstrip['SAMPN'].copy()
+rhtstrip=rhtstrip[rhtstrip['ODTPURP']=='1'].reset_index(drop=True)
+rhtstrip['RESCT']=[str(x).zfill(11) for x in rhtstrip['OTRACT']]
+rhtstrip['WORKCT']=[str(x).zfill(11) for x in rhtstrip['DTRACT']]
+rhtstrip['PPMODE']=np.where(np.isin(rhtstrip['PMODE_R3'],['1']),'CAR',
+                   np.where(np.isin(rhtstrip['PMODE_R3'],['2']),'TRANSIT','OTHER'))
+rhtstrip['PPTIME']=pd.to_numeric(rhtstrip['TRPDUR'])
+
+# AM PEAK
+k=rhtstrip[rhtstrip['TOD_R']=='1'].reset_index(drop=True)
+k=k[k['PPMODE']=='TRANSIT'].reset_index(drop=True)
+k=k[['PPID','RESCT','WORKCT','PPTIME']].reset_index(drop=True)
+# resct=pd.read_csv('C:/Users/mayij/Desktop/DOC/DCP2018/TRAVELSHEDREVAMP/tableau/resct.csv',dtype=str,converters={'time':float})
+resct=pd.read_csv('C:/Users/mayij/Desktop/DOC/DCP2018/TRAVELSHEDREVAMP/nyctract/resct3.csv',dtype=float,converters={'tractid':str})
+resct=pd.melt(resct,id_vars=['tractid'])
+resct=resct[resct['value']!=999].reset_index(drop=True)
+resct['RESCT']=[x.replace('RES','') for x in resct['variable']]
+resct['WORKCT']=resct['tractid'].copy()
+resct['TRANSIT']=pd.to_numeric(resct['value'])
+resct=resct[['RESCT','WORKCT','TRANSIT']].reset_index(drop=True)
+k=pd.merge(k,resct,how='inner',on=['RESCT','WORKCT'])
+fig=go.Figure()
+fig=fig.add_trace(go.Scattergl(name='RHTS vs TRAVELSHED',
+                               x=k['PPTIME'],
+                               y=k['TRANSIT'],
+                               mode='markers',
+                               marker={'color':'rgba(44,127,184,1)',
+                                       'size':5}))
+fig=fig.add_trace(go.Scattergl(name='OPTIMAL',
+                               x=[0,max(k['PPTIME'])],
+                               y=[0,max(k['PPTIME'])],
+                               mode='lines',
+                               line={'color':'rgba(215,25,28,1)',
+                                     'width':2}))
+fig.update_layout(
+    template='plotly_white',
+    legend={'orientation':'h',
+            'title_text':'',
+            'font_size':16,
+            'x':0.5,
+            'xanchor':'center',
+            'y':1,
+            'yanchor':'bottom'},
+    xaxis={'title':{'text':'MODEL',
+                    'font_size':14},
+           'tickfont_size':12,
+           'rangemode':'nonnegative',
+           'showgrid':True},
+    yaxis={'title':{'text':'ACS',
+                    'font_size':14},
+           'tickfont_size':12,
+           'rangemode':'nonnegative',
+           'showgrid':True},
+    font={'family':'Arial',
+          'color':'black'},
+)
+
+
+
+k=pd.merge(k,resct,how='left',on=['RESCT'])
+k=k[pd.notna(k['TRANSIT'])].reset_index(drop=True)
+k['DEC']=np.where(k['WORKCT_x']==k['WORKCT_y'],1,0)
+
+xtrain=k[['PPTIME']]
+ytrain=k[['DEC']]
+sm.MNLogit(ytrain,sm.add_constant(xtrain)).fit().summary()
+
+
+
+
+
+
+
+
+
+
+rhtstrip.PMODE_R3.value_counts(dropna=False)
+
+k=rhtstrip[(rhtstrip['OTPURP_AGG']=='0')&(rhtstrip['DTPURP_AGG']=='1')]
+
+
+
 
 k=rhtstrip.groupby('TRIPID').agg({'PLANO':'count'})
 
@@ -149,6 +240,25 @@ k=rhtstrip[(rhtstrip['SAMPN']=='4133756')&(rhtstrip['PERNO']=='2')&(rhtstrip['TO
 
 
 df=pd.merge(rhtspp,rhtshh,how='inner',on='HHID')
+p=sklearn.decomposition.PCA(n_components=0.99,svd_solver='full')
+p.fit_transform(pd.get_dummies(df[['PPSEX','PPAGE','PPRACE','PPSCH','PPIND','HHSIZE','HHTYPE','HHINC','HHSTR','HHVEH']],drop_first=True))
+n=p.n_components_
+p=pd.DataFrame(data=p.fit_transform(pd.get_dummies(df[['PPSEX','PPAGE','PPRACE','PPSCH','PPIND','HHSIZE','HHTYPE','HHINC','HHSTR','HHVEH']],drop_first=True)),columns=['PCA'+str(x) for x in range(1,n+1)])
+pcakm=sklearn.cluster.KMeans(n_clusters=5)
+p['PCAKKM5']=pcakm.fit_predict(p)
+k=pd.concat([df[['PPTRIPS']],p[['PCAKKM5']]],axis=1,ignore_index=False)
+k['COUNT']=1
+k.groupby(['PPTRIPS','PCAKKM5']).agg({'COUNT':'count'})
+
+
+
+
+
+
+
+
+
+
 df['PPIND']=np.where(df['PPIND']=='U16','U16',
             np.where(df['PPIND']=='NLF','NLF',
             np.where(df['PPIND']=='CUP','CUP','EMP')))
