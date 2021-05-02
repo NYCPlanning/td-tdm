@@ -21,6 +21,32 @@ path='C:/Users/mayij/Desktop/DOC/DCP2021/TRAVEL DEMAND MODEL/'
 pio.renderers.default = "browser"
 
 
+
+dfpp=pd.read_csv(path+'POP/dfpp.csv',dtype=str,converters={'PWGTP':float,'TOTAL':float})
+dfpp['ODIND']=np.where(np.isin(dfpp['PPIND'],['AGR','EXT','CON','MFG']),'IND1',
+              np.where(np.isin(dfpp['PPIND'],['UTL','WHL','RET','TRN']),'IND2',
+              np.where(np.isin(dfpp['PPIND'],['INF','FIN','RER','PRF','MNG','WMS','EDU','MED','ENT','ACC','SRV','ADM']),'IND3','OTH')))
+odctct=pd.read_csv(path+'LEHD/odctct.csv',dtype=str)
+
+sum(dfpp.TOTAL)
+dfpp['TOTALRD']=[round(x) for x in dfpp['TOTAL']]
+sum(dfpp.TOTALRD)/sum(dfpp.TOTAL)
+
+k=dfpp.loc[0,:]
+k=pd.merge()
+
+
+
+
+
+
+
+
+
+
+
+
+
 # Household
 rhtshh=pd.read_csv(path+'RHTS/HH_Public.csv',dtype=str)
 rhtshh['HHID']=rhtshh['SAMPN'].copy()
