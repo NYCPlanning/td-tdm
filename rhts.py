@@ -11,7 +11,7 @@ import shapely
 
 
 pd.set_option('display.max_columns', None)
-
+path='C:/Users/mayij/Desktop/DOC/DCP2021/TRAVEL DEMAND MODEL/'
 
 # Map Population by Time of Day
 # Trips
@@ -88,8 +88,131 @@ df.to_file('C:/Users/mayij/Desktop/DOC/GITHUB/td-tdm/rhts.geojson',driver='GeoJS
 
 
 
+# Clean Household
+rhtshh=pd.read_csv(path+'RHTS/HH_Public.csv',dtype=str)
+rhtshh['HHID']=rhtshh['SAMPN'].copy()
+rhtshh['WGTP']=pd.to_numeric(rhtshh['HH_WHT2'])
+rhtshh['HHSIZE']=np.where(rhtshh['HHSIZ']=='1','SIZE1',
+                 np.where(rhtshh['HHSIZ']=='2','SIZE2',
+                 np.where(rhtshh['HHSIZ']=='3','SIZE3','SIZE4')))
+rhtshh['HHTYPE']=np.where(rhtshh['HHSTRUC']=='1','TYPE1',
+                 np.where(rhtshh['HHSTRUC']=='2','TYPE2',
+                 np.where(rhtshh['HHSTRUC']=='3','TYPE3',
+                 np.where(rhtshh['HHSTRUC']=='4','TYPE4',
+                 np.where(rhtshh['HHSTRUC']=='5','TYPE5',
+                 np.where(rhtshh['HHSTRUC']=='6','TYPE6','OTH'))))))
+rhtshh=rhtshh[rhtshh['INCOM']!='99'].reset_index(drop=True)
+rhtshh['HHINC']=np.where(rhtshh['INCOM']=='1','INC201',
+                np.where(rhtshh['INCOM']=='2','INC202',
+                np.where(rhtshh['INCOM']=='3','INC203',
+                np.where(rhtshh['INCOM']=='4','INC204',
+                np.where(rhtshh['INCOM']=='5','INC205',
+                np.where(rhtshh['INCOM']=='6','INC206',
+                np.where(rhtshh['INCOM']=='7','INC207',
+                np.where(rhtshh['INCOM']=='8','INC207','OTH'))))))))
+rhtshh=rhtshh[rhtshh['RESTY']!='8'].reset_index(drop=True)
+rhtshh=rhtshh[rhtshh['RESTY']!='9'].reset_index(drop=True)
+rhtshh['HHSTR']=np.where(rhtshh['RESTY']=='1','STR1',
+                np.where(rhtshh['RESTY']=='2','STRM',
+                np.where(rhtshh['RESTY']=='3','STRO','OTH')))
+rhtshh['HHVEH']=np.where(rhtshh['HHVEH']=='0','VEH0',
+                np.where(rhtshh['HHVEH']=='1','VEH1',
+                np.where(rhtshh['HHVEH']=='2','VEH2',
+                np.where(rhtshh['HHVEH']=='3','VEH3','VEH4'))))
+rhtshh=rhtshh[['HHID','WGTP','HHSIZE','HHTYPE','HHINC','HHSTR','HHVEH']].reset_index(drop=True)
+rhtshh.to_csv(path+'RHTS/rhtshh.csv',index=False)
 
 
+
+# Clean Person
+rhtspp=pd.read_csv(path+'RHTS/PER_Public.csv',dtype=str,encoding='latin-1')
+rhtspp['PPID']=rhtspp['SAMPN']+'|'+rhtspp['PERNO']
+rhtspp['HHID']=rhtspp['SAMPN'].copy()
+rhtspp['PWGTP']=pd.to_numeric(rhtspp['HH_WHT2'])
+rhtspp=rhtspp[rhtspp['GENDER']!='RF'].reset_index(drop=True)
+rhtspp['PPSEX']=np.where(rhtspp['GENDER']=='Male','MALE','FEMALE')
+rhtspp=rhtspp[rhtspp['AGE_R']!='Age not provided'].reset_index(drop=True)
+rhtspp['PPAGE']=np.where(rhtspp['AGE_R']=='Younger than 16 years','AGE201',
+                np.where(rhtspp['AGE_R']=='16-18 years','AGE202',
+                np.where(rhtspp['AGE_R']=='19-24 years','AGE203',
+                np.where(rhtspp['AGE_R']=='25-34 years','AGE204',
+                np.where(rhtspp['AGE_R']=='35-54 years','AGE205',
+                np.where(rhtspp['AGE_R']=='55-64 years','AGE206',
+                np.where(rhtspp['AGE_R']=='65 years or older','AGE207','OTHER')))))))
+rhtspp=rhtspp[rhtspp['HISP']!='RF'].reset_index(drop=True)
+rhtspp=rhtspp[rhtspp['HISP']!='DK'].reset_index(drop=True)
+rhtspp=rhtspp[rhtspp['RACE']!='RF'].reset_index(drop=True)
+rhtspp=rhtspp[rhtspp['RACE']!='DK'].reset_index(drop=True)
+rhtspp['PPRACE']=np.where(rhtspp['HISP']=='Yes','HSP',
+                 np.where(rhtspp['RACE']=='White','WHT',
+                 np.where(rhtspp['RACE']=='African American, Black','BLK',
+                 np.where(rhtspp['RACE']=='American Indian, Alaskan Native','NTV',
+                 np.where(rhtspp['RACE']=='Asian','ASN',
+                 np.where(rhtspp['RACE']=='Pacific Islander','PCF',
+                 np.where(rhtspp['RACE']=='Other (Specify)','OTH',
+                 np.where(rhtspp['RACE']=='Multiracial','TWO','OT'))))))))
+rhtspp=rhtspp[rhtspp['STUDE']!='RF'].reset_index(drop=True)
+rhtspp=rhtspp[rhtspp['STUDE']!='DK'].reset_index(drop=True)
+rhtspp=rhtspp[rhtspp['SCHOL']!='RF'].reset_index(drop=True)
+rhtspp=rhtspp[rhtspp['SCHOL']!='DK'].reset_index(drop=True)
+rhtspp=rhtspp[rhtspp['SCHOL']!='Other (Specify)'].reset_index(drop=True)
+rhtspp['PPSCH']=np.where(pd.isna(rhtspp['SCHOL']),'NS',
+                np.where(rhtspp['SCHOL']=='Daycare','PR',
+                np.where(rhtspp['SCHOL']=='Nursery/Pre-school','PR',
+                np.where(rhtspp['SCHOL']=='Kindergarten to Grade 8','G8',
+                np.where(rhtspp['SCHOL']=='Grade 9 to 12','HS',
+                np.where(rhtspp['SCHOL']=='4-Year College or University','CL',
+                np.where(rhtspp['SCHOL']=='2-Year College (Community College)','CL',
+                np.where(rhtspp['SCHOL']=='Vocational/Technical School','CL',
+                np.where(rhtspp['SCHOL']=='Graduate School/Professional','GS','OT')))))))))
+rhtspp=rhtspp[rhtspp['EMPLY']!='RF'].reset_index(drop=True)
+rhtspp=rhtspp[rhtspp['EMPLY']!='DK'].reset_index(drop=True)
+rhtspp=rhtspp[rhtspp['VOLUN']!='RF'].reset_index(drop=True)
+rhtspp=rhtspp[rhtspp['VOLUN']!='DK'].reset_index(drop=True)
+rhtspp=rhtspp[rhtspp['WKSTAT']!='RF'].reset_index(drop=True)
+rhtspp=rhtspp[rhtspp['WKSTAT']!='DK'].reset_index(drop=True)
+rhtspp=rhtspp[rhtspp['INDUS']!='DONT KNOW'].reset_index(drop=True)
+rhtspp=rhtspp[rhtspp['INDUS']!='REFUSED'].reset_index(drop=True)
+rhtspp=rhtspp[rhtspp['INDUS']!='OTHER (SPECIFY __________)'].reset_index(drop=True)
+rhtspp['PPIND']=np.where(pd.isna(rhtspp['EMPLY']),'U16',
+                np.where((rhtspp['WORKS']=='Not a Worker')&(rhtspp['WKSTAT']=='Retired'),'NLF',
+                np.where((rhtspp['WORKS']=='Not a Worker')&(rhtspp['WKSTAT']=='Homemaker'),'NLF',
+                np.where((rhtspp['WORKS']=='Not a Worker')&(rhtspp['WKSTAT']=='Student (Part-time or Full-time)'),'NLF',
+                np.where((rhtspp['WORKS']=='Not a Worker')&(rhtspp['WKSTAT']=='Unemployed, Not Seeking Employment'),'NLF',
+                np.where((rhtspp['WORKS']=='Not a Worker')&(rhtspp['WKSTAT']=='Unemployed but Looking for Work'),'CUP',
+                np.where(rhtspp['OCCUP']=='MILITARY SPECIFIC OCCUPATIONS','MIL',
+                np.where(rhtspp['INDUS']=='AGRICULTURE, FORESTRY, FISHING AND HUNTING','AGR',
+                np.where(rhtspp['INDUS']=='MINING, QUARRYING, AND OIL AND GAS EXTRACTION','EXT',
+                np.where(rhtspp['INDUS']=='CONSTRUCTION','CON',
+                np.where(rhtspp['INDUS']=='MANUFACTURING','MFG',
+                np.where(rhtspp['INDUS']=='WHOLESALE TRADE','WHL',
+                np.where(rhtspp['INDUS']=='RETAIL TRADE','RET',
+                np.where(rhtspp['INDUS']=='TRANSPORTATION AND WAREHOUSING','TRN',
+                np.where(rhtspp['INDUS']=='UTILITIES','UTL',
+                np.where(rhtspp['INDUS']=='INFORMATION','INF',
+                np.where(rhtspp['INDUS']=='FINANCE AND INSURANCE','FIN',
+                np.where(rhtspp['INDUS']=='REAL ESTATE, RENTAL AND LEASING','RER',
+                np.where(rhtspp['INDUS']=='PROFESSIONAL, SCIENTIFIC AND TECHNICAL SERVICES','PRF',
+                np.where(rhtspp['INDUS']=='MANAGEMENT OF COMPANIES AND ENTERPRISES','MNG',
+                np.where(rhtspp['INDUS']=='ADMINISTRATION AND SUPPORT AND WARE MANAGEMENT AND REMEDIATION SERVICES','WMS',
+                np.where(rhtspp['INDUS']=='EDUCATIONAL SERVICES','EDU',
+                np.where(rhtspp['INDUS']=='HEALTH CARE AND SOCIAL ASSISTANCE','MED',
+                np.where(rhtspp['INDUS']=='ARTS, ENTERTAINMENT, AND RECREATION','ENT',
+                np.where(rhtspp['INDUS']=='ACCOMODATION AND FOOD SERVICES','ACC',
+                np.where(rhtspp['INDUS']=='OTHER SERVICES (EXCEPT PUBLIC ADMINISTRATION)','SRV',
+                np.where(rhtspp['INDUS']=='PUBLIC ADMINISTRATION','ADM','OTH')))))))))))))))))))))))))))
+rhtspp=rhtspp[rhtspp['LIC']!='DK'].reset_index(drop=True)
+rhtspp=rhtspp[rhtspp['LIC']!='RF'].reset_index(drop=True)
+rhtspp['PPLIC']=np.where(pd.isna(rhtspp['LIC']),'U16',
+                np.where(rhtspp['LIC']=='Yes','YES',
+                np.where(rhtspp['LIC']=='No','NO','OTH')))
+rhtspp['PPTRIPS']=np.where(rhtspp['PTRIPS']=='0','TRIP0',
+                  np.where(rhtspp['PTRIPS']=='2','TRIP2',
+                  np.where(rhtspp['PTRIPS']=='3','TRIP3',
+                  np.where(rhtspp['PTRIPS']=='4','TRIP4','TRIPO'))))
+# rhtspp['PPTRIPS']=pd.to_numeric(rhtspp['PTRIPS'])
+rhtspp=rhtspp[['PPID','HHID','PWGTP','PPSEX','PPAGE','PPRACE','PPSCH','PPIND','PPLIC','PPTRIPS']].reset_index(drop=True)
+rhtspp.to_csv(path+'RHTS/rhtspp.csv',index=False)
 
 
 

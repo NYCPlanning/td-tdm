@@ -80,6 +80,7 @@ rhtshh['HHVEH']=np.where(rhtshh['HHVEH']=='0','VEH0',
                 np.where(rhtshh['HHVEH']=='3','VEH3','VEH4'))))
 rhtshh=rhtshh[['HHID','WGTP','HHSIZE','HHTYPE','HHINC','HHSTR','HHVEH']].reset_index(drop=True)
 
+
 # Person
 rhtspp=pd.read_csv(path+'RHTS/PER_Public.csv',dtype=str,encoding='latin-1')
 rhtspp['PPID']=rhtspp['SAMPN']+'|'+rhtspp['PERNO']

@@ -20,7 +20,7 @@ geoxwalk=pd.read_csv(path+'POP/GEOIDCROSSWALK.csv',dtype=str)
 
 
 
-# Clean up RAC
+# Clean up RAC CT
 rac=[]
 for i in ['ct','nj','ny']:
     rac+=[pd.read_csv(path+'LEHD/'+i+'_rac_S000_JT01_2018.csv',dtype=float,converters={'h_geocode':str})]
@@ -43,7 +43,7 @@ rac=rac.groupby(['CensusTract2010'],as_index=False).agg({'TW':'sum','AGE301':'su
 rac.columns=['CT','TW','AGE301','AGE302','AGE303','AGR','EXT','UTL','CON','MFG','WHL','RET','TRN',
              'INF','FIN','RER','PRF','MNG','WMS','EDU','MED','ENT','ACC','SRV','ADM','LH','HS','SCAD',
              'BDGD','MALE','FEMALE']
-rac.to_csv(path+'LEHD/rac.csv',index=False)
+rac.to_csv(path+'LEHD/racct.csv',index=False)
 
 # Validation
 dfpp=pd.read_csv(path+'POP/dfpp.csv',dtype=str,converters={'PWGTP':float,'TOTAL':float})
@@ -51,7 +51,7 @@ dfppwk=dfpp[(dfpp['PPMODE']!='NW')&(dfpp['PPIND']!='MIL')].reset_index(drop=True
 dfppwk['RACAGE']=np.where(np.isin(dfppwk['PPAGE'],['AGE04','AGE05','AGE06']),'AGE301',
                  np.where(np.isin(dfppwk['PPAGE'],['AGE07','AGE08','AGE09','AGE10','AGE11']),'AGE302',
                  np.where(np.isin(dfppwk['PPAGE'],['AGE12','AGE13','AGE14','AGE15','AGE16','AGE17','AGE18']),'AGE303','OTH')))
-rac=pd.read_csv(path+'LEHD/rac.csv',dtype=float,converters={'CT':str})
+rac=pd.read_csv(path+'LEHD/racct.csv',dtype=float,converters={'CT':str})
 # RAC missing off-the-book residents
 
 # Check RACTW
@@ -256,7 +256,7 @@ fig.write_html(path+'POP/validation/racindpt.html',include_plotlyjs='cdn')
 
 
 
-# Clean up WAC
+# Clean up WAC PUMA
 wac=[]
 for i in ['ct','nj','ny']:
     wac+=[pd.read_csv(path+'LEHD/'+i+'_wac_S000_JT01_2018.csv',dtype=float,converters={'w_geocode':str})]
@@ -279,7 +279,7 @@ wac=wac.groupby(['POWPUMA2010'],as_index=False).agg({'TW':'sum','AGE301':'sum','
 wac.columns=['POWPUMA','TW','AGE301','AGE302','AGE303','AGR','EXT','UTL','CON','MFG','WHL','RET',
              'TRN','INF','FIN','RER','PRF','MNG','WMS','EDU','MED','ENT','ACC','SRV','ADM','LH','HS',
              'SCAD','BDGD','MALE','FEMALE']
-wac.to_csv(path+'LEHD/wac.csv',index=False)
+wac.to_csv(path+'LEHD/wacpuma.csv',index=False)
 
 # Validation
 dfpp=pd.read_csv(path+'POP/dfpp.csv',dtype=str,converters={'PWGTP':float,'TOTAL':float})
@@ -287,7 +287,7 @@ dfppwk=dfpp[(dfpp['PPMODE']!='NW')&(dfpp['PPIND']!='MIL')].reset_index(drop=True
 dfppwk['WACAGE']=np.where(np.isin(dfppwk['PPAGE'],['AGE04','AGE05','AGE06']),'AGE301',
                  np.where(np.isin(dfppwk['PPAGE'],['AGE07','AGE08','AGE09','AGE10','AGE11']),'AGE302',
                  np.where(np.isin(dfppwk['PPAGE'],['AGE12','AGE13','AGE14','AGE15','AGE16','AGE17','AGE18']),'AGE303','OTH')))
-wac=pd.read_csv(path+'LEHD/wac.csv',dtype=float,converters={'POWPUMA':str})
+wac=pd.read_csv(path+'LEHD/wacpuma.csv',dtype=float,converters={'POWPUMA':str})
 # WAC missing off-the-book workers
 # Model missing residents outside BPM working in POWPUMAs
 
@@ -683,6 +683,33 @@ fig.write_html(path+'POP/validation/odindpt.html',include_plotlyjs='cdn')
 
 
 
+# Clean up WAC CT
+wac=[]
+for i in ['ct','nj','ny']:
+    wac+=[pd.read_csv(path+'LEHD/'+i+'_wac_S000_JT01_2018.csv',dtype=float,converters={'w_geocode':str})]
+wac=pd.concat(wac,axis=0,ignore_index=True)
+wac.columns=['BK','TW','AGE301','AGE302','AGE303','EARN1','EARN2','EARN3','AGR','EXT','UTL','CON','MFG',
+             'WHL','RET','TRN','INF','FIN','RER','PRF','MNG','WMS','EDU','MED','ENT','ACC','SRV','ADM',
+             'WHT','BLK','NTV','ASN','PCF','TWO','NHS','HSP','LH','HS','SCAD','BDGD','MALE','FEMALE',
+             'CFA01','CFA02','CFA03','CFA04','CFA05','CFS01','CFS02','CFS03','CFS04','CFS05','DATE']
+wac=pd.merge(wac,geoxwalk,how='inner',left_on='BK',right_on='Block2010')
+wac=wac[np.isin(wac['StateCounty'],bpm)].reset_index(drop=True)
+wac=wac.groupby(['CensusTract2010'],as_index=False).agg({'TW':'sum','AGE301':'sum','AGE302':'sum',
+                                                         'AGE303':'sum','AGR':'sum','EXT':'sum',
+                                                         'UTL':'sum','CON':'sum','MFG':'sum','WHL':'sum',
+                                                         'RET':'sum','TRN':'sum','INF':'sum','FIN':'sum',
+                                                         'RER':'sum','PRF':'sum','MNG':'sum','WMS':'sum',
+                                                         'EDU':'sum','MED':'sum','ENT':'sum','ACC':'sum',
+                                                         'SRV':'sum','ADM':'sum','LH':'sum','HS':'sum',
+                                                         'SCAD':'sum','BDGD':'sum','MALE':'sum',
+                                                         'FEMALE':'sum'}).reset_index(drop=True)
+wac.columns=['CT','TW','AGE301','AGE302','AGE303','AGR','EXT','UTL','CON','MFG','WHL','RET',
+             'TRN','INF','FIN','RER','PRF','MNG','WMS','EDU','MED','ENT','ACC','SRV','ADM','LH','HS',
+             'SCAD','BDGD','MALE','FEMALE']
+wac.to_csv(path+'LEHD/wacct.csv',index=False)
+
+
+
 # Clean up ODCTCT
 od=[]
 for i in ['ct','nj','ny']:
@@ -704,6 +731,18 @@ od=od.groupby(['CensusTract2010_x','CensusTract2010_y'],as_index=False).agg({'TW
                                                                              'IND3':'sum'}).reset_index(drop=True)
 od.columns=['RACCT','WACCT','TW','AGE301','AGE302','AGE303','IND1','IND2','IND3']
 od.to_csv(path+'LEHD/odctct.csv',index=False)
+
+
+
+
+
+
+
+
+
+
+
+
 
 
 
