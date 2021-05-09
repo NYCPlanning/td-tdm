@@ -13,7 +13,8 @@ import shapely
 pd.set_option('display.max_columns', None)
 
 
-
+# Map Population by Time of Day
+# Trips
 rhtstrip=pd.read_csv('C:/Users/mayij/Desktop/DOC/DCP2021/TRAVEL DEMAND MODEL/RHTS/LINKED_Public.csv',dtype=str)
 rhtstrip['pid']=rhtstrip['SAMPN']+'|'+rhtstrip['PERNO']
 df=[]
@@ -43,7 +44,7 @@ df.to_csv('C:/Users/mayij/Desktop/DOC/GITHUB/td-tdm/rhtstrip.csv',index=False)
 
 
 
-
+# Non-trips
 rhtsps=pd.read_csv('C:/Users/mayij/Desktop/DOC/DCP2021/TRAVEL DEMAND MODEL/RHTS/PER_Public.csv',dtype=str,encoding='latin-1')
 rhtshh=pd.read_csv('C:/Users/mayij/Desktop/DOC/DCP2021/TRAVEL DEMAND MODEL/RHTS/HH_Public.csv',dtype=str,encoding='latin-1')
 df=pd.merge(rhtsps,rhtshh,how='inner',on='SAMPN')
@@ -58,11 +59,7 @@ df=df[['dest']+['h'+str(x).zfill(2) for x in range(0,24)]].reset_index(drop=True
 df.to_csv('C:/Users/mayij/Desktop/DOC/GITHUB/td-tdm/rhtsnontrip.csv',index=False)
 
 
-
-
-
-
-
+# Combine
 rhtstrip=pd.read_csv('C:/Users/mayij/Desktop/DOC/GITHUB/td-tdm/rhtstrip.csv')
 rhtsnontrip=pd.read_csv('C:/Users/mayij/Desktop/DOC/GITHUB/td-tdm/rhtsnontrip.csv')
 df=pd.merge(rhtstrip,rhtsnontrip,how='outer',on='dest')
