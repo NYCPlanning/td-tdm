@@ -140,33 +140,58 @@ wacct=wacct[['CT','AGR','EXT','UTL','CON','MFG','WHL','RET','TRN','INF','FIN','R
              'MED','ENT','ACC','SRV','ADM']].reset_index(drop=True)
 wacct=wacct.melt(id_vars=['CT'],value_vars=['AGR','EXT','UTL','CON','MFG','WHL','RET','TRN','INF','FIN','RER',
                                             'PRF','MNG','WMS','EDU','MED','ENT','ACC','SRV','ADM'],var_name='PPIND',value_name='WAC')
-wacct=wacct[wacct['WAC']!=0].reset_index(drop=True)
+wacct=wacct[wacct['WAC']>100].reset_index(drop=True)
 wacct.columns=['WORKCT','PPIND','WAC']
 rhtstrip=pd.merge(rhtstrip,wacct,how='inner',on=['PPIND'])
 rhtstrip['DEC']=np.where(rhtstrip['WORKCT_x']==rhtstrip['WORKCT_y'],1,0)
 
 
 
-k=rhtstrip.loc[:20000,].reset_index(drop=True)
+k=rhtstrip.loc[:,:].reset_index(drop=True)
 k.DEC.value_counts()
 k=k[['PPID','PPIND','RESCT','WORKCT_y','WAC','DEC']].reset_index(drop=True)
 k.columns=['PPID','PPIND','RESCT','WORKCT','WAC','DEC']
-k.to_csv(path+'SKIM/k.csv',index=False)
-k=pd.read_csv(path+'SKIM/k.csv',dtype=str)
 s=k[['RESCT','WORKCT']].drop_duplicates(keep='first').reset_index(drop=True)
 s=pd.merge(s,res,how='inner',on='RESCT')
 s=pd.merge(s,work,how='inner',on='WORKCT')
 s=s[['RESCT','RESLAT','RESLONG','WORKCT','WORKLAT','WORKLONG']].reset_index(drop=True)
-s['DIST']=np.nan
-s['CAR']=np.nan
-s.to_csv(path+'SKIM/s.csv',index=False)
+# s['DIST']=np.nan
+# s['CAR']=np.nan
+s['DIST']=np.sqrt((s['RESLAT']-s['WORKLAT'])**2+(s['RESLONG']-s['WORKLONG'])**2)
+# s.to_csv(path+'SKIM/s.csv',index=False)
+s=s[['RESCT','WORKCT','DIST']].reset_index(drop=True)
+k=pd.merge(k,s,how='inner',on=['RESCT','WORKCT'])
+
+
+
+# MNL
+reg=sklearn.linear_model.LogisticRegression().fit(k[['DIST','WAC']],k['DEC'])
+sm.MNLogit(k['DEC'],sm.add_constant(k[['DIST','WAC']])).fit().summary()
+ypred=pd.DataFrame({'train':k['DEC'],'pred':reg.predict(k[['DIST','WAC']]),
+                    'prob':[x[1] for x in reg.predict_proba(k[['DIST','WAC']])],
+                    'problog':[x[1] for x in reg.predict_log_proba(k[['DIST','WAC']])]})
+print(sklearn.metrics.classification_report(ypred['train'],ypred['pred']))
+
+
+
+k['PROB']=[x[1] for x in reg.predict_proba(k[['DIST','WAC']])]
+l=k.groupby('PPID').agg({'PROB':'sum'})
+k=pd.merge(k,l,how='inner',on='PPID')
+k['PROB']=k['PROB_x']/k['PROB_y']
+k=k.sort_values(['PROB'],ascending=False).reset_index(drop=True)
+k=k.drop_duplicates(['PPID'],keep='first').reset_index(drop=True)
+k.groupby('WORKCT').count().sort_values(['PPID'],ascending=False)
+
+
+
+
 
 
 
 s=pd.read_csv(path+'SKIM/s.csv',dtype=str)
 doserver='http://159.65.64.166:8801/'
 start=datetime.datetime.now()
-for i in s.index[0:100]:
+for i in s.index:
     url=doserver+'otp/routers/default/plan?fromPlace='
     url+=str(s.loc[i,'RESLAT'])+','+str(s.loc[i,'RESLONG'])
     url+='&toPlace='+str(s.loc[i,'WORKLAT'])+','+str(s.loc[i,'WORKLONG'])+'&mode=CAR'
@@ -185,50 +210,4 @@ s.to_csv(path+'SKIM/s.csv',index=False)
 
 
 
-
-
-
-
-
-
-
-
-# Nearest intersection
-node=gpd.read_file(path+'location/node.shp')
-node=node['geometry']
-node=shapely.geometry.MultiPoint(node)
-nr=[shapely.ops.nearest_points(x,node)[1] for x in sitegeom]
-for i in site.index:
-    site.loc[i,'intlat']=nr[i].y
-    site.loc[i,'intlong']=nr[i].x
-site=site[['siteid','direction','lat','long','intlat','intlong','distance','walktime']]
-
-# Distance from site to nearest intersection
-frompt=site.copy()
-frompt=gpd.GeoDataFrame(frompt,crs={'init': 'epsg:4326'},
-                        geometry=[shapely.geometry.Point(xy) for xy in zip(pd.to_numeric(frompt['long']), pd.to_numeric(frompt['lat']))])
-frompt=frompt.to_crs({'init': 'epsg:6539'})
-frompt=frompt['geometry']
-topt=site.copy()
-topt=gpd.GeoDataFrame(topt,crs={'init': 'epsg:4326'},
-                        geometry=[shapely.geometry.Point(xy) for xy in zip(pd.to_numeric(topt['intlong']), pd.to_numeric(topt['intlat']))])
-topt=topt.to_crs({'init': 'epsg:6539'})
-topt=topt['geometry']
-dist=frompt.distance(topt)
-site['distance']=dist
-
-# Walk time from site to nearest intersection
-for i in site.index:
-    url=doserver+'otp/routers/default/plan?fromPlace='
-    url+=str(site.loc[i,'lat'])+','+str(site.loc[i,'long'])
-    url+='&toPlace='+str(site.loc[i,'intlat'])+','+str(site.loc[i,'intlong'])+'&mode=WALK'
-    headers={'Accept':'application/json'}
-    req=requests.get(url=url,headers=headers)
-    js=req.json()
-    if list(js.keys())[1]=='error':
-        site.loc[i,'walktime']=np.nan
-    else:
-        site.loc[i,'walktime']=js['plan']['itineraries'][0]['legs'][0]['duration']
-    time.sleep(0.1)
-site.to_excel(path+'perrequest/input.xlsx',sheet_name='input',index=False)
 
