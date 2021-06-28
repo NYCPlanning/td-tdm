@@ -58,7 +58,7 @@ df=pd.read_csv('C:/Users/mayij/Desktop/DOC/DCP2020/COVID19/SUBWAY/TURNSTILE/OUTP
 df=df.groupby(['unit','firstdate'],as_index=False).agg({'entries':'sum'}).reset_index(drop=True)
 df['wkd']=[datetime.datetime.strptime(x,'%m/%d/%Y').weekday() for x in df['firstdate']]
 df=df[np.isin(df['wkd'],[0,1,2,3,4])].reset_index(drop=True)
-df['month']=[x.split('/')[1] for x in df['firstdate']]
+df['month']=[x.split('/')[0] for x in df['firstdate']]
 df['year']=[x.split('/')[-1] for x in df['firstdate']]
 dfpre=df[df['month']=='04'].reset_index(drop=True)
 dfpre=dfpre[dfpre['year']=='2019'].reset_index(drop=True)
